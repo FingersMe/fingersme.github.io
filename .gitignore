@@ -1,0 +1,27 @@
+# ── Secrets — NEVER commit ──
+**/.env
+**/.env.local
+**/.env.*.local
+contracts/.env
+frontend/.env
+
+# ── Node ──
+**/node_modules/
+**/*.log
+npm-debug.log*
+
+# ── Hardhat / contracts build ──
+contracts/artifacts/
+contracts/cache/
+contracts/coverage/
+contracts/coverage.json
+contracts/typechain-types/
+contracts/deployments/*.local.json
+contracts/fingers-deployment.local.json
+
+# ── Frontend build ──
+frontend/dist/
+
+# ── OS ──
+.DS_Store
+Thumbs.db

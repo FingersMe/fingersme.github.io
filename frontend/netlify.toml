@@ -1,0 +1,14 @@
+# Netlify: build the static SPA and serve dist/ with SPA fallback routing.
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "frontend/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback: every route serves index.html (client-side routing).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

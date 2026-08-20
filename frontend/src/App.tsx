@@ -6,6 +6,7 @@ import { StatsBar } from "./components/StatsBar";
 import { EmergencyBanner } from "./components/EmergencyBanner";
 import { HowPanel } from "./panels/HowPanel";
 import { MintPanel } from "./panels/MintPanel";
+import { SwapPanel } from "./panels/SwapPanel";
 import { GalleryPanel } from "./panels/GalleryPanel";
 import { NftStakePanel } from "./panels/NftStakePanel";
 import { ClaimPanel } from "./panels/ClaimPanel";
@@ -17,6 +18,7 @@ import { addresses, abi, isDeployed } from "./lib/contracts";
 const TABS = [
   { id: "how", label: "How it works", icon: "📖" },
   { id: "mint", label: "Play", icon: "👑" },
+  { id: "swap", label: "Swap → USDG", icon: "🔁" },
   { id: "gallery", label: "Gallery & sell-back", icon: "🖼️" },
   { id: "nftstake", label: "Stake NFTs", icon: "🔒" },
   { id: "claim", label: "Claim $FINGERS", icon: "🎁" },
@@ -109,6 +111,7 @@ export default function App() {
             <motion.div key={activeLabel} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }}>
               {tab === "how" && <HowPanel />}
               {tab === "mint" && <MintPanel />}
+              {tab === "swap" && <SwapPanel />}
               {tab === "gallery" && <GalleryPanel />}
               {tab === "nftstake" && <NftStakePanel />}
               {tab === "claim" && <ClaimPanel />}

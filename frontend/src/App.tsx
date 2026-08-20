@@ -12,17 +12,18 @@ import { NftStakePanel } from "./panels/NftStakePanel";
 import { ClaimPanel } from "./panels/ClaimPanel";
 import { FingersPanel } from "./panels/FingersPanel";
 import { AdminPanel } from "./panels/AdminPanel";
+import { IconHow, IconPlay, IconSwap, IconGallery, IconStake, IconClaim, IconCoin, IconAdmin } from "./components/Icons";
 import { robinhood } from "./lib/wagmi";
 import { addresses, abi, isDeployed } from "./lib/contracts";
 
 const TABS = [
-  { id: "how", label: "How it works", icon: "📖" },
-  { id: "mint", label: "Play", icon: "👑" },
-  { id: "swap", label: "Swap → USDG", icon: "🔁" },
-  { id: "gallery", label: "Gallery & sell-back", icon: "🖼️" },
-  { id: "nftstake", label: "Stake NFTs", icon: "🔒" },
-  { id: "claim", label: "Claim $FINGERS", icon: "🎁" },
-  { id: "fingers", label: "$FINGERS staking", icon: "💰" },
+  { id: "how", label: "How it works", Icon: IconHow },
+  { id: "mint", label: "Play", Icon: IconPlay },
+  { id: "swap", label: "Swap → USDG", Icon: IconSwap },
+  { id: "gallery", label: "Gallery & sell-back", Icon: IconGallery },
+  { id: "nftstake", label: "Stake NFTs", Icon: IconStake },
+  { id: "claim", label: "Claim $FINGERS", Icon: IconClaim },
+  { id: "fingers", label: "$FINGERS staking", Icon: IconCoin },
 ] as const;
 type TabId = (typeof TABS)[number]["id"] | "admin";
 
@@ -62,12 +63,12 @@ export default function App() {
               <nav className="nav">
                 {TABS.map((t) => (
                   <button key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-                    <span>{t.icon}</span> {t.label}
+                    <t.Icon className="tico" /> {t.label}
                   </button>
                 ))}
                 {isOwner && (
                   <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")} style={{ borderColor: "var(--gold)" }}>
-                    <span>🛠️</span> Owner console
+                    <IconAdmin className="tico" /> Owner console
                   </button>
                 )}
               </nav>

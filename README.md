@@ -31,6 +31,12 @@ npm run build                                             # static dist/
 Set deployed addresses in `frontend/.env` (`VITE_ADDR_*`) from `contracts/fingers-deployment.robinhood.json`.
 
 ## Deploy the site (GitHub Pages)
-Pushing to `main` runs `.github/workflows/pages.yml`, which builds the frontend with the correct base path and publishes it. Enable **Settings → Pages → Source: GitHub Actions**.
+Published from the committed **`docs/`** folder (no GitHub Actions needed). To update after a change:
+```bash
+cd frontend && VITE_BASE=/ npm run build
+cd .. && rm -rf docs && cp -r frontend/dist docs && cp docs/index.html docs/404.html && touch docs/.nojekyll
+git add docs && git commit -m "rebuild site" && git push
+```
+Pages is configured as **Settings → Pages → Source: Deploy from a branch → `main` / `/docs`**. Live at **https://avaloveapp.github.io/**.
 
-**Secrets never leave your machine:** `contracts/.env` (the deployer private key) and every `.env` are gitignored.
+**Secrets never leave your machine:** `contracts/.env` (the deployer private key) and every `.env` are gitignored. The contract addresses baked into the site are public.

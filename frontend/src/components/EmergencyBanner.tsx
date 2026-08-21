@@ -48,7 +48,7 @@ export function EmergencyBanner() {
         <span className="badge gold">{yesVotes.toString()} / {need.toString()} votes</span>
       </div>
       <p className="sub" style={{ marginBottom: 12 }}>
-        The team proposed moving the pooled USDG. It only goes through if <b>50% of Winner NFTs</b> approve.
+        The team proposed moving the pooled NVDA. It only goes through if <b>50% of Winner NFTs</b> approve.
         Your vote protects the treasury — one vote per Winner NFT you hold or have staked.
       </p>
       <div className="pbar" style={{ marginBottom: 12 }}><span style={{ width: `${pct}%` }} /></div>

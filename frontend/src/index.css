@@ -141,6 +141,13 @@ input:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgb
 .footer { text-align: center; color: var(--muted); font-size: 13px; padding: 36px 0 22px; line-height: 1.6; }
 .chain-chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(155,232,15,.35); color: var(--lime); font-weight: 800; font-size: 12px; background: rgba(155,232,15,.05); }
 
+/* NVDA (NVIDIA RWA) branding — signature NVIDIA green */
+:root { --nvda: #76b900; }
+.nvda-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid rgba(118,185,0,.5); color: var(--nvda); font-weight: 800; font-size: 12px; background: rgba(118,185,0,.08); box-shadow: 0 0 16px rgba(118,185,0,.14); }
+.nvda-chip b { color: #9fe30a; letter-spacing: .02em; }
+.nvda-ink { color: var(--nvda); }
+.pill.nvda-pill { color: var(--nvda); border-color: rgba(118,185,0,.5); background: rgba(118,185,0,.08); box-shadow: 0 0 18px rgba(118,185,0,.14); }
+
 @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 6px rgba(255,201,60,.3);} 50% { box-shadow: 0 0 22px rgba(255,201,60,.6);} }
 .pulse { animation: pulse-glow 2s ease-in-out infinite; }
 @keyframes float { 0%,100% { transform: translateY(0) rotate(0);} 50% { transform: translateY(-7px) rotate(-6deg);} }

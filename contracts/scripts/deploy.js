@@ -21,10 +21,14 @@ const path = require("path");
 // ── Robinhood Chain constants (chainId 4663) ──
 const ROBINHOOD = {
   USDG: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+  // Payment / quote token for the presale = NVDA (NVIDIA • Robinhood RWA, 18 decimals).
+  // "First RWA presale" — plays, rewards, sink, sell-back and LP all settle in NVDA.
+  NVDA: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
   WETH: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
   POOL_MANAGER: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
   STATE_VIEW: "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b",
 };
+const MINT_PRICE_NVDA = 5_000_000_000_000_000n; // 0.005 NVDA (18 decimals)
 // Loss sink: 75% of every losing bet (immutable in the game).
 const USDG_SINK = "0x91b5965e81DAC2687D0dAD000bd6ef207D2D167f";
 
@@ -80,22 +84,26 @@ async function main() {
 
   // Resolve chain-specific addresses (mock them locally so the wiring can be validated).
   let USDG, POOL_MANAGER, STATE_VIEW, usdgDecimals;
+  // NOTE: variable is still named USDG for legacy reasons, but it is the PAYMENT/QUOTE token =
+  // NVDA on the live network. The game/staking are token-agnostic (any ERC20).
+  let mintPrice;
   if (isRobinhood) {
-    USDG = ROBINHOOD.USDG;
+    USDG = ROBINHOOD.NVDA;                 // pay with NVDA
     POOL_MANAGER = ROBINHOOD.POOL_MANAGER;
     STATE_VIEW = ROBINHOOD.STATE_VIEW;
     usdgDecimals = Number(await (await ethers.getContractAt("@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol:IERC20Metadata", USDG)).decimals());
+    mintPrice = MINT_PRICE_NVDA;           // 0.005 NVDA
   } else {
-    const mockUsdg = await (await ethers.getContractFactory("MockERC20")).deploy("USDG", "USDG", 6);
+    const mockUsdg = await (await ethers.getContractFactory("MockERC20")).deploy("NVDA", "NVDA", 18);
     await mockUsdg.waitForDeployment();
     USDG = await mockUsdg.getAddress();
     POOL_MANAGER = deployer.address;  // placeholder (not exercised in dry-run)
     STATE_VIEW = deployer.address;
-    usdgDecimals = 6;
-    console.log("  (dry-run) mock USDG:", USDG);
+    usdgDecimals = 18;
+    mintPrice = MINT_PRICE_NVDA;
+    console.log("  (dry-run) mock NVDA:", USDG);
   }
-  const mintPrice = 10n ** BigInt(usdgDecimals); // 1 USDG
-  console.log(`USDG decimals:   ${usdgDecimals} | mintPrice = 1 USDG = ${mintPrice}`);
+  console.log(`Pay token (NVDA) decimals: ${usdgDecimals} | mintPrice = 0.005 NVDA = ${mintPrice}`);
 
   // ── NFTs ──
   const winner = await (await ethers.getContractFactory("FingersWinnerNFT")).deploy("ipfs://fingers/winner/", "ipfs://fingers/winner/collection.json");
@@ -121,14 +129,14 @@ async function main() {
   await (await game.setNftStaking(await nftStaking.getAddress())).wait();
   console.log("  nftStaking: ", await nftStaking.getAddress());
 
-  // ── $FINGERS token (100M): mint all to deployer, then fund the claim vault with 50M ──
+  // ── $FINGERS token (100M): mint all to deployer, then FUND the NFT-staking contract with the 50M
+  //    emission pool. Stakers EARN it over 90 days (started after finalize via startFingersEmission). ──
   const token = await (await ethers.getContractFactory("FingersToken")).deploy(deployer.address, deployer.address);
   await token.waitForDeployment();
-  const claim = await (await ethers.getContractFactory("FingersClaim")).deploy(await game.getAddress(), await winner.getAddress(), await token.getAddress());
-  await claim.waitForDeployment();
-  await (await token.transfer(await claim.getAddress(), await token.CLAIM_ALLOCATION())).wait();
-  console.log("  token:      ", await token.getAddress(), "(50M LP kept by deployer, 50M -> claim)");
-  console.log("  claim:      ", await claim.getAddress());
+  const EMISSION = await token.CLAIM_ALLOCATION(); // 50M — the staking-emission pool
+  await (await token.transfer(await nftStaking.getAddress(), EMISSION)).wait();
+  console.log("  token:      ", await token.getAddress(), "(50M LP kept by deployer, 50M -> NFT-staking emission pool)");
+  console.log("  emission:    50M $FINGERS funded to nftStaking; call startFingersEmission(token, 90d) AFTER finalize");
 
   // ── $FINGERS staking (boosted by staked NFTs) ──
   const fingersStaking = await (await ethers.getContractFactory("FingersStaking")).deploy(await token.getAddress(), await nftStaking.getAddress());
@@ -161,7 +169,6 @@ async function main() {
     game: await game.getAddress(),
     nftStaking: await nftStaking.getAddress(),
     token: await token.getAddress(),
-    claim: await claim.getAddress(),
     fingersStaking: await fingersStaking.getAddress(),
     hook: hookAddr,
     migrator: await migrator.getAddress(),
@@ -174,13 +181,14 @@ async function main() {
   console.log("\n✅ Deployed. Summary saved →", file);
   console.log(JSON.stringify(out, null, 2));
 
-  console.log("\nMANUAL LP CHECKLIST (post Round 1):");
-  console.log("  1) game.closeRound1(); settle every commit (reveal/forfeit) until game.isSettled()");
-  console.log("  2) claim.open()  → winners claim 50M $FINGERS pro-rata (NFTs stay stakeable)");
+  console.log("\nFINALIZE / LP CHECKLIST (post raise):");
+  console.log("  1) game.finalize(); settle every commit (reveal/forfeit) until game.isSettled()");
+  console.log("  2) nftStaking.startFingersEmission(token, 7776000)  → begin the 90-day 50M $FINGERS emission to stakers");
   console.log("  3) game.flushToSink()  (75% losses → sink)  &  game.flushToStaking()  (25% → NFT stakers)");
-  console.log("  4) game.withdrawWinUsdg()  → pull the retained WIN USDG to your LP wallet");
+  console.log("  4) game.withdrawWinUsdg()  → pull the retained WIN NVDA to your LP wallet");
   console.log("  5) build FINGERS/asset locked pools by hand (via migrator.graduate with hooks=hook),");
   console.log("     then hook.registerPool(key, cfg) on each to switch on the 1% fee engine.");
+  console.log("  6) after 90 days: nftStaking.sweepFingersLeftover(lpWallet)  → reclaim un-staked emission for LP.");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

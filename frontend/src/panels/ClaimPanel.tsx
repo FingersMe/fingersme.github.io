@@ -1,69 +1,74 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import { formatUnits } from "viem";
 import toast from "react-hot-toast";
 import { addresses, abi, isDeployed } from "../lib/contracts";
-import { useOwnedNfts } from "../lib/useOwnedNfts";
 
+const fmtF = (v?: bigint) => v === undefined ? "—" : Number(formatUnits(v, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+// fingersEmissionInfo() → [ratePerSec, endsAt, secsLeft, recognized, total]
 export function ClaimPanel() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const [busy, setBusy] = useState(false);
-  const [manual, setManual] = useState("");
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => { const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000); return () => clearInterval(t); }, []);
 
-  const deployed = isDeployed(addresses.claim);
-  const owned = useOwnedNfts(deployed ? addresses.winnerNFT : undefined);
+  const on = isDeployed(addresses.nftStaking);
+  const { data: info } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "fingersEmissionInfo", query: { enabled: on, refetchInterval: 15_000 } });
+  const { data: pend, refetch: refetchPend } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pendingFingers", args: address ? [address] : undefined, query: { enabled: on && !!address, refetchInterval: 10_000 } });
+  const { data: staked } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "stakedCount", args: address ? [address] : undefined, query: { enabled: on && !!address, refetchInterval: 15_000 } });
 
-  const { data: opened } = useReadContract({ address: addresses.claim, abi: abi.claim, functionName: "opened", query: { enabled: deployed, refetchInterval: 15_000 } });
-  const { data: share } = useReadContract({ address: addresses.claim, abi: abi.claim, functionName: "perNFTShare", query: { enabled: deployed } });
-  const { data: winnerLock } = useReadContract({ address: addresses.claim, abi: abi.claim, functionName: "winnerLockCount", query: { enabled: deployed } });
+  if (!on) return <div className="card glow"><div className="notice">Staking isn't wired yet.</div></div>;
 
-  const manualIds = manual.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean).map((x) => { try { return BigInt(x); } catch { return null; } }).filter((x): x is bigint => x !== null);
-  const perShareHuman = share ? Number(formatUnits(share as bigint, 18)).toLocaleString() : "—";
-  const estimate = share && owned.ids.length ? Number(formatUnits((share as bigint) * BigInt(owned.ids.length), 18)).toLocaleString() : "0";
+  const r = info as unknown as [bigint, bigint, bigint, bigint, bigint] | undefined;
+  const rate = r?.[0] ?? 0n, endsAt = r?.[1] ?? 0n, recognized = r?.[3] ?? 0n, total = r?.[4] ?? 50_000_000n * 10n ** 18n;
+  const started = rate > 0n;
+  const secsLeft = started ? Math.max(0, Number(endsAt) - now) : 0;
+  const days = Math.floor(secsLeft / 86400), hrs = Math.floor((secsLeft % 86400) / 3600);
+  const pct = total > 0n ? Math.min(100, Number((recognized * 100n) / total)) : 0;
+  const myStaked = (staked as bigint | undefined) ?? 0n;
 
-  async function claim(ids: bigint[]) {
-    if (ids.length === 0) { toast.error("No winner NFTs to claim"); return; }
+  async function claim() {
     try {
       setBusy(true);
-      const hash = await writeContractAsync({ address: addresses.claim, abi: abi.claim, functionName: "claimMany", args: [ids] });
+      const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "claim", args: [] });
       await publicClient!.waitForTransactionReceipt({ hash });
-      toast.success("Claimed $FINGERS 🎁"); owned.refresh(); setManual("");
+      toast.success("Claimed $FINGERS 🎁"); refetchPend();
     } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); } finally { setBusy(false); }
   }
 
-  if (!deployed) return <div className="card glow"><div className="notice">Claim isn't wired yet — set <span className="mono">VITE_ADDR_CLAIM</span>.</div></div>;
-
   return (
-    <div className="card glow" style={{ maxWidth: 640, margin: "0 auto" }}>
-      <h2>🎁 Claim your $FINGERS</h2>
-      <p className="sub">50,000,000 $FINGERS split evenly across every Winner NFT — more wins, more tokens. Claiming does <b>not</b> burn your NFT, so keep it staked.</p>
-
-      <div className="statbar" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-        <div className="stat"><div className="k">Status</div><div className="v green">{opened ? "OPEN" : "Soon"}</div></div>
-        <div className="stat"><div className="k">Per Winner</div><div className="v gold">{perShareHuman}</div></div>
-        <div className="stat"><div className="k">You can claim</div><div className="v">{owned.loading ? <span className="skel">00</span> : `${estimate}`}</div></div>
+    <div className="grid" style={{ gap: 18, maxWidth: 720, margin: "0 auto" }}>
+      <div className="card glow">
+        <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+          <h2>🎁 Earn $FINGERS by staking</h2>
+          <span className={`badge ${started ? "win" : "gold"}`}>{started ? `${days}d ${hrs}h left` : "starts after finalize"}</span>
+        </div>
+        <p className="sub">
+          <b>50,000,000 $FINGERS</b> streams to <b>Winner-NFT stakers</b> over <b>90 days</b> — split by how many NFTs you stake, so your share
+          dilutes as more people join. No fixed claim: stake to earn, claim anytime. Unstaked emission goes to locked liquidity.
+        </p>
+        <div className="statbar" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+          <div className="stat"><div className="k">Emitted so far</div><div className="v gold">{fmtF(recognized)}</div></div>
+          <div className="stat"><div className="k">Your staked NFTs</div><div className="v green">{myStaked.toString()}</div></div>
+          <div className="stat"><div className="k">Your claimable</div><div className="v">{fmtF(pend as bigint | undefined)}</div></div>
+        </div>
+        <div className="hint" style={{ marginTop: 4 }}>{fmtF(recognized)} / {fmtF(total)} $FINGERS emitted</div>
+        <div className="pbar" style={{ marginTop: 6 }}><span style={{ width: `${pct}%` }} /></div>
       </div>
 
-      {!opened ? (
-        <div className="notice" style={{ marginTop: 16 }}>Claiming opens once Round 1 closes and every play is settled ({winnerLock !== undefined ? (winnerLock as bigint).toString() : "?"} Winners locked). Check back after the round.</div>
-      ) : (
-        <>
-          <button className="btn full" style={{ marginTop: 16 }} disabled={!isConnected || busy || owned.ids.length === 0} onClick={() => claim(owned.ids)}>
-            {busy ? "Claiming…" : owned.loading ? "Scanning your Winners…" : `Claim all ${owned.ids.length} Winner${owned.ids.length === 1 ? "" : "s"} → ${estimate} $FINGERS`}
+      <div className="card glow">
+        {myStaked === 0n ? (
+          <div className="notice">You have <b>0 Winner NFTs staked</b> — head to <b>Stake NFTs</b> and stake to start earning $FINGERS + NVDA.</div>
+        ) : (
+          <button className="btn full win" disabled={!isConnected || busy || ((pend as bigint | undefined) ?? 0n) === 0n} onClick={claim}>
+            {busy ? "Claiming…" : `🎁 Claim ${fmtF(pend as bigint | undefined)} $FINGERS`}
           </button>
-          {owned.error && (
-            <div style={{ marginTop: 12 }}>
-              <div className="hint">Auto-scan unavailable on this RPC — enter tokenIds manually:</div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <input type="text" placeholder="3, 17, 22" value={manual} onChange={(e) => setManual(e.target.value)} />
-                <button className="btn" disabled={busy} onClick={() => claim(manualIds)}>Claim</button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+        )}
+        <div className="hint" style={{ marginTop: 10 }}>Claiming here also sweeps any pending NVDA staking rewards in the same tx.</div>
+      </div>
     </div>
   );
 }

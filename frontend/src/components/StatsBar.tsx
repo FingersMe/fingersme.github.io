@@ -41,7 +41,7 @@ export function StatsBar() {
         v={ready ? `${totalWinners!.toLocaleString()} / ${MAX_WINNERS.toLocaleString()}` : preLaunch(loading, `0 / ${MAX_WINNERS.toLocaleString()}`)} />
       <Stat k="Total plays"
         v={ready ? totalAttempts!.toLocaleString() : preLaunch(loading)} />
-      <Stat k="USDG wagered"
+      <Stat k="NVDA wagered"
         v={ready ? usdgHuman! : preLaunch(loading)} />
       <Stat k="Live win rate" tone="green"
         v={ready ? `${(winRate ?? 40).toFixed(1)}%` : preLaunch(loading, "40.0%")} />

@@ -15,7 +15,7 @@ export function GalleryPanel() {
       <div className="grid two">
         <Collection art="/won_NFT.png" title="Winners" emoji="👑" tone="win"
           count={deployed ? (winners as bigint | undefined) : undefined} loading={deployed && lw}
-          blurb="Crowned & crispy. A Winner is a real asset — stake it for a share of every loss in USDG, boost your $FINGERS yield, and claim your slice of 50,000,000 $FINGERS." />
+          blurb="Crowned & crispy. A Winner is a real asset — stake it to earn a share of every loss in NVDA AND the 50,000,000 $FINGERS 90-day emission, split by how many you stake." />
         <Collection art="/loses_NFT.png" title="Losers" emoji="🌶️" tone="lose"
           count={deployed ? (losers as bigint | undefined) : undefined} loading={deployed && ll}
           blurb="REKT and saucy. The badge of shame lives in your wallet forever — Eat. Lose. Cry. No powers, all flavor (burn it yourself if the pain's too real)." />

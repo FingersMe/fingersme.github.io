@@ -34,7 +34,7 @@ export function ResultModal({ results, onClose }: { results: Res[] | null; onClo
             </h2>
             <p className="modal-sub">
               {anyWin
-                ? `You minted ${wins} Winner NFT${wins > 1 ? "s" : ""}${losses ? ` (and ${losses} saucy badge${losses > 1 ? "s" : ""})` : ""}. Stake it for USDG yield + claim your $FINGERS.`
+                ? `You minted ${wins} Winner NFT${wins > 1 ? "s" : ""}${losses ? ` (and ${losses} saucy badge${losses > 1 ? "s" : ""})` : ""}. Stake it for NVDA yield + claim your $FINGERS.`
                 : `${losses} badge${losses > 1 ? "s" : ""} of shame minted. Eat. Lose. Cry. Try again — the fryer is merciless.`}
             </p>
             <div className="row" style={{ gap: 6, justifyContent: "center", marginBottom: 16, flexWrap: "wrap" }}>

@@ -1,11 +1,8 @@
 import { useState } from "react";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
-import { formatUnits } from "viem";
 import toast from "react-hot-toast";
-import { addresses, abi, isDeployed } from "../lib/contracts";
+import { addresses, abi, isDeployed, fmtPay, PAY } from "../lib/contracts";
 import { useOwnedNfts } from "../lib/useOwnedNfts";
-
-const USDG_DECIMALS = 6;
 
 export function SellBackCard() {
   const { isConnected } = useAccount();
@@ -37,7 +34,7 @@ export function SellBackCard() {
     <div className="card glow">
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
         <h2>💸 Sell a Winner back</h2>
-        <span className="badge gold">{refundEach !== undefined ? `${Number(formatUnits(refundEach, USDG_DECIMALS))} USDG each` : "75% back"}</span>
+        <span className="badge gold">{refundEach !== undefined ? `${fmtPay(refundEach)} ${PAY.symbol} each` : "75% back"}</span>
       </div>
       <p className="sub">Changed your mind? Burn a Winner NFT for a <b>75% refund</b> (a 25% loss). Only paid wins qualify — staked NFTs must be unstaked first.</p>
       {!isConnected ? (

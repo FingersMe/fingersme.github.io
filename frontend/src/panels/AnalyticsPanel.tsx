@@ -1,9 +1,7 @@
 import { useReadContract } from "wagmi";
-import { formatUnits } from "viem";
-import { addresses, abi, isDeployed } from "../lib/contracts";
+import { addresses, abi, isDeployed, fmtPay } from "../lib/contracts";
 
-const U = 6; // USDG decimals
-const usd = (v: unknown) => v === undefined ? "—" : Number(formatUnits(v as bigint, U)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const usd = (v: unknown) => fmtPay(v as bigint | undefined);
 const num = (v: unknown) => v === undefined ? "—" : (v as bigint).toLocaleString();
 
 function useGame(fn: string, enabled: boolean) {
@@ -42,7 +40,7 @@ export function AnalyticsPanel() {
           <div className="stat"><div className="k">Losers</div><div className="v">{num(losers)}</div></div>
           <div className="stat"><div className="k">Total plays</div><div className="v">{num(attempts)}</div></div>
           <div className="stat"><div className="k">Live win rate</div><div className="v green">{winRate}%</div></div>
-          <div className="stat"><div className="k">USDG raised</div><div className="v gold">{usd(raised)}</div></div>
+          <div className="stat"><div className="k">NVDA raised</div><div className="v gold">{usd(raised)}</div></div>
           <div className="stat"><div className="k">Winner NFTs live</div><div className="v">{num(winnerSupply)}</div></div>
           <div className="stat"><div className="k">Claim</div><div className="v">{claimOpened ? "OPEN" : "closed"}</div></div>
         </div>
@@ -54,7 +52,7 @@ export function AnalyticsPanel() {
         <div className="card glow">
           <h2>💸 Where the money is</h2>
           <div className="mflow" style={{ marginTop: 6 }}>
-            <div className="mrow"><span className="tag2 t-house">WIN retained</span><span className="arrow">→</span><p>{usd(retained)} USDG waiting for LP · {usd(winWithdrawn)} already withdrawn</p></div>
+            <div className="mrow"><span className="tag2 t-house">WIN retained</span><span className="arrow">→</span><p>{usd(retained)} NVDA waiting for LP · {usd(winWithdrawn)} already withdrawn</p></div>
             <div className="mrow"><span className="tag2 t-lose">Stakers (25%)</span><span className="arrow">→</span><p>{usd(stakerAccrued)} pending · {usd(stakerFlushed)} paid out</p></div>
             <div className="mrow"><span className="tag2 t-lose">Sink (75%)</span><span className="arrow">→</span><p>{usd(sinkAccrued)} pending · {usd(sinkFlushed)} sent</p></div>
           </div>

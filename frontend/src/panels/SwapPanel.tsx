@@ -8,11 +8,11 @@ const LiFiWidget = lazy(() =>
 );
 
 const ROBINHOOD_CHAIN_ID = 4663;
-const ROBINHOOD_WETH = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"; // routes WETH→USDG on Robinhood (Nordstern)
+const ROBINHOOD_WETH = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"; // routes WETH→NVDA on Robinhood (Nordstern)
 
 const config: Partial<WidgetConfig> = {
   integrator: "fingers-me",
-  // Land the user on Robinhood USDG — the token you play with.
+  // Land the user on Robinhood NVDA — the token you play with.
   toChain: ROBINHOOD_CHAIN_ID,
   toToken: addresses.usdg,
   // Start from a pair that actually has a live route so the widget resolves out of the box.
@@ -36,10 +36,10 @@ export function SwapPanel() {
   return (
     <div className="grid" style={{ gap: 18 }}>
       <div className="card glow">
-        <h2>Bring funds in — swap to USDG</h2>
+        <h2>Bring funds in — swap to NVDA</h2>
         <p className="sub">
           Play with whatever you already hold. Swap or bridge any asset from any chain straight into
-          <b> USDG on Robinhood</b> (powered by LI.FI), then hop over to <b>Play</b>. Your wallet, your route —
+          <b> NVDA on Robinhood</b> (powered by LI.FI), then hop over to <b>Play</b>. Your wallet, your route —
           nothing is custodied here.
         </p>
         <div className="hint" style={{ marginTop: 0 }}>

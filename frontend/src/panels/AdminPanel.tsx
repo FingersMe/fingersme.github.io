@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
-import { formatUnits, isAddress, type Address } from "viem";
+import { isAddress, type Address } from "viem";
 import toast from "react-hot-toast";
-import { addresses, abi, isDeployed } from "../lib/contracts";
+import { addresses, abi, isDeployed, fmtPay, PAY } from "../lib/contracts";
 
-const USDG_DECIMALS = 6; // Robinhood USDG
 const PHASE_LABELS = ["Round 1 — Open", "Closed — Settling", "Settled"];
 
 function usdg(v: unknown) {
-  return v === undefined ? "—" : Number(formatUnits(v as bigint, USDG_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return v === undefined ? "—" : fmtPay(v as bigint);
 }
 
 export function AdminPanel() {
@@ -35,6 +34,8 @@ export function AdminPanel() {
   const { data: emg, refetch: refetchEmg } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "emergency", query: { enabled: deployed, refetchInterval: 12_000 } });
   const { data: emgPasses, refetch: refetchEmgPass } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "emergencyPasses", query: { enabled: deployed, refetchInterval: 12_000 } });
   const { data: raise } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "raiseInfo", query: { enabled: deployed, refetchInterval: 12_000 } });
+  const { data: fRate } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "fingersRate", query: { enabled: isDeployed(addresses.nftStaking), refetchInterval: 15_000 } });
+  const fingersRate = (fRate as bigint | undefined) ?? 0n;
 
   const isOwner = !!address && !!owner && (address as string).toLowerCase() === (owner as string).toLowerCase();
 
@@ -109,10 +110,10 @@ export function AdminPanel() {
           <div className="stat"><div className="k">Unsettled</div><div className="v" style={{ color: unsettled && unsettled > 0n ? "var(--orange)" : undefined }}>{unsettled?.toLocaleString() ?? "…"}</div></div>
           <div className="stat"><div className="k">Winners left</div><div className="v">{winnersRemaining?.toLocaleString() ?? "…"}</div></div>
           <div className="stat"><div className="k">Settled?</div><div className="v">{settled ? "YES" : "no"}</div></div>
-          <div className="stat"><div className="k">Claim</div><div className="v">{claimOpened ? "OPEN" : "closed"}</div></div>
+          <div className="stat"><div className="k">Emission</div><div className="v">{fingersRate > 0n ? "LIVE" : "off"}</div></div>
         </div>
         <div className="statbar" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginTop: 10 }}>
-          <div className="stat"><div className="k">WIN USDG (withdrawable)</div><div className="v gold">{usdg(winRetained)}</div></div>
+          <div className="stat"><div className="k">WIN NVDA (withdrawable)</div><div className="v gold">{usdg(winRetained)}</div></div>
           <div className="stat"><div className="k">Sink accrued (75%)</div><div className="v">{usdg(sinkAccrued)}</div></div>
           <div className="stat"><div className="k">Staker accrued (25%)</div><div className="v green">{usdg(stakerAccrued)}</div></div>
         </div>
@@ -121,7 +122,7 @@ export function AdminPanel() {
       {/* Round control */}
       <div className="card glow">
         <h2>🎮 Raise control</h2>
-        <p className="sub">The winner cap auto-escalates ×10 (round 1→2→3…). Pause anytime, extend the 30-day countdown, or <b>finalize</b> the raise whenever you want — funds are never trapped (withdraw WIN-USDG below).</p>
+        <p className="sub">The winner cap auto-escalates ×10 (round 1→2→3…). Pause anytime, extend the 30-day countdown, or <b>finalize</b> the raise whenever you want — funds are never trapped (withdraw WIN-NVDA below).</p>
         <div className="statbar" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 12 }}>
           <div className="stat"><div className="k">Round</div><div className="v gold">{raiseRound}</div></div>
           <div className="stat"><div className="k">Winner cap (tier)</div><div className="v">{raiseCap}</div></div>
@@ -156,7 +157,7 @@ export function AdminPanel() {
       {/* Settlement flows */}
       <div className="card glow">
         <h2>💸 Settlement & payouts</h2>
-        <p className="sub">After every play is settled: push loss splits to their pools, then pull the retained WIN USDG to your LP wallet.</p>
+        <p className="sub">After every play is settled: push loss splits to their pools, then pull the retained WIN NVDA to your LP wallet.</p>
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           <button className="btn" disabled={!!busy} onClick={() => run("staking", addresses.game, abi.game, "flushToStaking", [], "25% flushed to NFT stakers")}>
             {busy === "staking" ? "…" : `🥩 Flush → stakers (${usdg(stakerAccrued)})`}
@@ -164,28 +165,28 @@ export function AdminPanel() {
           <button className="btn" disabled={!!busy} onClick={() => run("sink", addresses.game, abi.game, "flushToSink", [], "75% flushed to sink")}>
             {busy === "sink" ? "…" : `🕳️ Flush → sink (${usdg(sinkAccrued)})`}
           </button>
-          <button className="btn" disabled={!!busy} onClick={() => run("withdraw", addresses.game, abi.game, "withdrawWinUsdg", [], "WIN USDG withdrawn to LP wallet")}>
-            {busy === "withdraw" ? "…" : `🏦 Withdraw WIN USDG (${usdg(winRetained)})`}
+          <button className="btn" disabled={!!busy} onClick={() => run("withdraw", addresses.game, abi.game, "withdrawWinUsdg", [], "WIN NVDA withdrawn to LP wallet")}>
+            {busy === "withdraw" ? "…" : `🏦 Withdraw WIN NVDA (${usdg(winRetained)})`}
           </button>
         </div>
       </div>
 
-      {/* Claim control */}
+      {/* $FINGERS emission control */}
       <div className="card glow">
-        <h2>🎁 $FINGERS claim</h2>
-        <p className="sub">Opening snapshots the Winner supply and fixes the per-NFT share of 50,000,000 $FINGERS. Open only once the round is fully settled.</p>
+        <h2>🎁 $FINGERS emission (90-day stake rewards)</h2>
+        <p className="sub">The 50M $FINGERS pool is funded into the NFT-staking contract at deploy. <b>After you finalize the raise</b>, start the 90-day emission — stakers then earn it, split by NFT count. After it ends, sweep the un-staked leftover to your LP wallet.</p>
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <button className="btn" disabled={!!busy || !isDeployed(addresses.claim) || !!claimOpened} onClick={() => {
-            if (!settled) { toast.error("Round not settled yet — settle every play first."); return; }
-            if (!confirm("Open claiming? The per-NFT share is locked in permanently at this moment.")) return;
-            run("open", addresses.claim, abi.claim, "open", [], "Claiming opened 🎉");
+          <button className="btn gold" disabled={!!busy || fingersRate > 0n} onClick={() => {
+            if (!settled) { toast.error("Finalize + settle the raise first."); return; }
+            if (!confirm("Start the 90-day $FINGERS emission now? This begins streaming 50M to stakers.")) return;
+            run("emit", addresses.nftStaking, abi.nftStaking, "startFingersEmission", [addresses.token, 7776000n], "Emission started 🎉");
           }}>
-            {busy === "open" ? "Opening…" : claimOpened ? "✅ Claim already open" : "🔓 Open claiming"}
+            {busy === "emit" ? "Starting…" : fingersRate > 0n ? "✅ Emission live" : "🚀 Start 90-day emission"}
           </button>
           <div className="row" style={{ gap: 8, flex: 1, minWidth: 260 }}>
-            <input type="text" placeholder="sweep leftover dust to address 0x…" value={dustInput} onChange={(e) => setDustInput(e.target.value)} />
-            <button className="btn" disabled={!!busy || !dustOk} onClick={() => run("dust", addresses.claim, abi.claim, "sweepDust", [dustInput.trim() as Address], "Dust swept")}>
-              {busy === "dust" ? "…" : "🧹 Sweep"}
+            <input type="text" placeholder="sweep leftover → LP wallet 0x… (after 90d)" value={dustInput} onChange={(e) => setDustInput(e.target.value)} />
+            <button className="btn" disabled={!!busy || !dustOk} onClick={() => run("sweepF", addresses.nftStaking, abi.nftStaking, "sweepFingersLeftover", [dustInput.trim() as Address], "Leftover swept to LP")}>
+              {busy === "sweepF" ? "…" : "🧹 Sweep"}
             </button>
           </div>
         </div>
@@ -194,7 +195,7 @@ export function AdminPanel() {
       {/* Free plays */}
       <div className="card glow">
         <h2>🎟️ Free-play credits (whitelist)</h2>
-        <p className="sub">Grant wallets any number of free rolls (no USDG) for giveaways, quests and partner drops. Each credit is one 40% gamble — you (the owner) play unlimited without credits. Adds to any existing balance.</p>
+        <p className="sub">Grant wallets any number of free rolls (no NVDA) for giveaways, quests and partner drops. Each credit is one 40% gamble — you (the owner) play unlimited without credits. Adds to any existing balance.</p>
         <div className="row" style={{ gap: 8 }}>
           <input type="text" placeholder="0xabc…, 0xdef… (comma / space separated)" value={freeInput} onChange={(e) => setFreeInput(e.target.value)} style={{ flex: 3, minWidth: 220 }} />
           <input type="number" min={1} placeholder="credits" value={freeAmount} onChange={(e) => setFreeAmount(e.target.value)} style={{ flex: 1, minWidth: 90 }} />
@@ -239,7 +240,7 @@ export function AdminPanel() {
           </>
         ) : (
           <div className="row" style={{ gap: 8 }}>
-            <input type="text" placeholder="token (default USDG)" value={emgToken} onChange={(e) => setEmgToken(e.target.value)} style={{ flex: 2, minWidth: 180 }} />
+            <input type="text" placeholder="token (default NVDA)" value={emgToken} onChange={(e) => setEmgToken(e.target.value)} style={{ flex: 2, minWidth: 180 }} />
             <input type="text" placeholder="destination 0x…" value={emgTo} onChange={(e) => setEmgTo(e.target.value)} style={{ flex: 2, minWidth: 180 }} />
             <button className="btn" disabled={!!busy || !isAddress(emgToken.trim()) || !isAddress(emgTo.trim())} onClick={() => run("emgPropose", addresses.game, abi.game, "proposeEmergency", [emgToken.trim() as Address, emgTo.trim() as Address], "Proposal opened — holders can vote")}>
               {busy === "emgPropose" ? "…" : "Open proposal"}
@@ -253,9 +254,9 @@ export function AdminPanel() {
         <h2>📋 Manual LP checklist (post Round 1)</h2>
         <ol className="sub" style={{ margin: 0, paddingLeft: 20, lineHeight: 1.9 }}>
           <li><b>Close Round 1</b> above, then settle every play (players reveal, or you can't force — forfeit expires unrevealed) until <b>Settled? = YES</b>.</li>
-          <li><b>Open claiming</b> → winners pull 50M $FINGERS pro-rata (NFTs stay stakeable).</li>
+          <li><b>Start the 90-day emission</b> (above) → stakers earn the 50M $FINGERS over time, split by NFT count.</li>
           <li><b>Flush → stakers</b> (25% losses) and <b>Flush → sink</b> (75%).</li>
-          <li><b>Withdraw WIN USDG</b> to your LP wallet.</li>
+          <li><b>Withdraw WIN NVDA</b> to your LP wallet.</li>
           <li>Build FINGERS/asset locked pools by hand via <span className="mono">migrator.graduate(hooks=hook)</span>, then <span className="mono">hook.registerPool(key, cfg)</span> on each to switch on the 1% fee engine. <i>(Run from Hardhat — needs PoolKey structs.)</i></li>
         </ol>
         <div className="statbar" style={{ gridTemplateColumns: "1fr", marginTop: 12 }}>

@@ -21,7 +21,7 @@ import { addresses, abi, isDeployed } from "./lib/contracts";
 const TABS = [
   { id: "how", label: "How it works", Icon: IconHow },
   { id: "mint", label: "Play", Icon: IconPlay },
-  { id: "swap", label: "Swap → USDG", Icon: IconSwap },
+  { id: "swap", label: "Swap → NVDA", Icon: IconSwap },
   { id: "gallery", label: "Gallery & sell-back", Icon: IconGallery },
   { id: "nftstake", label: "Stake NFTs", Icon: IconStake },
   { id: "claim", label: "Claim $FINGERS", Icon: IconClaim },
@@ -60,7 +60,7 @@ export default function App() {
                 </div>
               </div>
               <div className="prompt cursor" style={{ marginBottom: 14 }}>
-                <b>$</b> ./play --odds 40/60 --price 1USDG
+                <b>$</b> ./play --odds 40/60 --price 0.005NVDA --rwa
               </div>
 
               <nav className="nav">
@@ -80,7 +80,10 @@ export default function App() {
 
           <div className="term">
             <div className="term-body" style={{ display: "grid", gap: 10 }}>
-              <span className="chain-chip" style={{ justifySelf: "start" }}>🪶 Robinhood Chain</span>
+              <div className="row" style={{ gap: 7 }}>
+                <span className="chain-chip">🪶 Robinhood</span>
+                <span className="nvda-chip"><b>NVDA</b> presale</span>
+              </div>
               <ConnectButton showBalance={false} chainStatus="icon" />
             </div>
           </div>
@@ -93,12 +96,13 @@ export default function App() {
               <span className="c-lime">EAT.</span> <span className="c-gold">WIN.</span> <span className="c-pink">HODL.</span>
             </motion.h1>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}>
-              A provably-fair gamble-to-mint. Pay 1 USDG, pull the trigger: 40% mints a <b style={{ color: "var(--lime)" }}>Winner</b> you
-              stake for real yield, 60% a saucy badge of shame. Won and want out? Sell it back for 75%.
+              The <b className="nvda-ink">first RWA presale</b> — pay just <b className="nvda-ink">0.005 NVDA</b> (tokenized NVIDIA), pull the trigger:
+              40% mints a <b style={{ color: "var(--lime)" }}>Winner</b> you stake for real NVDA yield, 60% a saucy badge. Won and want out? Sell back for 75%.
             </motion.p>
             <div className="odds">
               <span className="pill win">40% WIN 👑</span>
               <span className="pill lose">60% LOSE 🌶️</span>
+              <span className="pill nvda-pill">▲ 0.005 NVDA / PLAY</span>
             </div>
           </section>
 

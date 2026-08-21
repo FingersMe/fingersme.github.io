@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { useReadContract } from "wagmi";
-import { formatUnits } from "viem";
-import { addresses, abi, isDeployed } from "../lib/contracts";
-
-const USDG_DECIMALS = 6;
+import { addresses, abi, isDeployed, fmtPay, PAY } from "../lib/contracts";
 
 // raiseInfo() tuple:
 // [round, winnerCap, deadline, timeLeft, live, totalWinners, totalLosers, totalAttempts, totalUsdgCollected, winUsdgRetained]
@@ -26,7 +23,7 @@ export function CountdownBar() {
   const m = Math.floor((secsLeft % 3600) / 60);
   const s = secsLeft % 60;
   const pct = winnerCap > 0n ? Math.min(100, Number((totalWinners * 100n) / winnerCap)) : 0;
-  const raised = Number(formatUnits(totalUsdgCollected, USDG_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const raised = fmtPay(totalUsdgCollected);
 
   const Cell = ({ v, k }: { v: number; k: string }) => (
     <div className="cd-cell"><div className="cd-num mono">{String(v).padStart(2, "0")}</div><div className="cd-lab">{k}</div></div>
@@ -48,7 +45,7 @@ export function CountdownBar() {
       </div>
       <div className="cd-meta">
         <span className="badge win">👑 {totalWinners.toLocaleString()} / {winnerCap.toLocaleString()} winners</span>
-        <span className="badge gold">💵 {raised} USDG raised</span>
+        <span className="badge gold">💚 {raised} {PAY.symbol} raised</span>
       </div>
       <div className="pbar" style={{ marginTop: 10 }}><span style={{ width: `${pct}%` }} /></div>
     </div>

@@ -54,17 +54,38 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
     mapping(address => uint256) public stakedCount;  // user => number of NFTs staked
     mapping(uint256 => address) public stakerOf;     // tokenId => staker (0 if not staked)
 
+    // ── $FINGERS emission (separate, time-based track) ───────────
+    // 50,000,000 $FINGERS is EARNED by staking Winner NFTs over a fixed window that starts once the
+    // raise is finalized. It streams at a constant rate, split by staked-NFT count (so each staker's
+    // share dilutes as more NFTs stake). Emission that accrues while NOBODY is staked is reserved as
+    // `fingersPendingNoStakers` and can be swept by the team (for LP) after the window ends — it is
+    // NOT handed to a late staker. This is a separate track from the balance-delta reward set above,
+    // so it never interferes with the USDG loss stream.
+    uint256 public constant FINGERS_EMISSION = 50_000_000e18;
+    address public immutable emissionAdmin;          // may only start emission / sweep leftovers — never touches NFTs or USDG
+    IERC20 public fingers;                            // the emission token ($FINGERS)
+    uint256 public fingersRate;                       // $FINGERS per second (0 until started)
+    uint256 public fingersEnd;                        // timestamp emission stops
+    uint256 public fingersLastAt;                     // last accrual time
+    uint256 public fingersRecognized;                 // total $FINGERS accrued so far (≤ FINGERS_EMISSION)
+    uint256 public fingersAccPerShare;                // scaled by PRECISION
+    uint256 public fingersPendingNoStakers;           // accrued while unstaked → team/LP after end
+    mapping(address => uint256) public fingersDebt;   // user => settled level
+
     event Staked(address indexed user, uint256 tokenId);
     event Unstaked(address indexed user, uint256 tokenId);
     event RewardNotified(address indexed token, uint256 amount);
     event Claimed(address indexed token, address indexed user, uint256 amount);
     event RewardTokenRegistered(address indexed token);
+    event FingersEmissionStarted(address indexed fingers, uint256 ratePerSec, uint256 endsAt);
+    event FingersLeftoverSwept(address indexed to, uint256 amount);
 
     constructor(address _winnerNFT, address _usdg) {
         require(_winnerNFT != address(0), "zero nft");
         require(_usdg != address(0), "zero usdg");
         winnerNFT = IERC721(_winnerNFT);
         usdg = _usdg;
+        emissionAdmin = msg.sender;
         // Pre-register USDG so loss-money that arrives before the first staker is held
         // in pendingNoStakers rather than reverting the game's flush.
         rewards[_usdg].registered = true;
@@ -114,7 +135,8 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
     function stake(uint256[] calldata tokenIds) external nonReentrant {
         uint256 len = tokenIds.length;
         require(len > 0, "empty");
-        _harvestAll(msg.sender); // pay out everything at the pre-stake share level
+        _harvestAll(msg.sender);       // pay out USDG at the pre-stake share level
+        _harvestFingers(msg.sender);   // pay out $FINGERS emission at the pre-stake share level
 
         for (uint256 i = 0; i < len; i++) {
             uint256 id = tokenIds[i];
@@ -133,6 +155,7 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
         require(len > 0, "empty");
         require(len <= stakedCount[msg.sender], "too many");
         _harvestAll(msg.sender);
+        _harvestFingers(msg.sender);
 
         for (uint256 i = 0; i < len; i++) {
             uint256 id = tokenIds[i];
@@ -146,9 +169,10 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
         _syncDebt(msg.sender);
     }
 
-    /// @notice Claim all pending rewards across every reward token without unstaking.
+    /// @notice Claim all pending rewards (USDG streams + $FINGERS emission) without unstaking.
     function claim() external nonReentrant {
         _harvestAll(msg.sender);
+        _harvestFingers(msg.sender);
         _syncDebt(msg.sender);
     }
 
@@ -171,7 +195,7 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
         }
     }
 
-    /// @dev Reset a user's debt to the current share level for every reward token.
+    /// @dev Reset a user's debt to the current share level for every reward token + the emission.
     function _syncDebt(address user) private {
         uint256 shares = stakedCount[user];
         uint256 n = rewardTokens.length;
@@ -179,6 +203,100 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
             address token = rewardTokens[i];
             rewardDebt[token][user] = (shares * rewards[token].accPerShare) / PRECISION;
         }
+        fingersDebt[user] = (shares * fingersAccPerShare) / PRECISION;
+    }
+
+    // ── $FINGERS emission ────────────────────────────────────
+
+    /// @notice Start the 50M $FINGERS emission over `duration` seconds. Call once, AFTER the raise is
+    ///         finalized and this contract has been funded with the full 50M. Team-admin only.
+    function startFingersEmission(address _fingers, uint256 duration) external {
+        require(msg.sender == emissionAdmin, "not admin");
+        require(fingersRate == 0, "already started");
+        require(_fingers != address(0), "zero token");
+        require(duration >= 1 days && duration <= 365 days, "bad duration");
+        require(IERC20(_fingers).balanceOf(address(this)) >= FINGERS_EMISSION, "underfunded");
+        fingers = IERC20(_fingers);
+        fingersRate = FINGERS_EMISSION / duration; // any dust from integer division stays sweepable
+        fingersEnd = block.timestamp + duration;
+        fingersLastAt = block.timestamp;
+        emit FingersEmissionStarted(_fingers, fingersRate, fingersEnd);
+    }
+
+    /// @notice After the emission window ends, sweep to `to` (team LP reserve) ONLY the $FINGERS that
+    ///         was never owed to a staker: emission that accrued while nobody was staked, plus the
+    ///         integer-division dust that was never emitted. It provably never touches staker balances
+    ///         (those live in accPerShare and are claimable forever).
+    function sweepFingersLeftover(address to) external nonReentrant returns (uint256 amount) {
+        require(msg.sender == emissionAdmin, "not admin");
+        require(fingersEnd != 0 && block.timestamp > fingersEnd, "not ended");
+        require(to != address(0), "zero to");
+        _accrueFingers(); // finalize recognition up to `end`
+        uint256 dust = FINGERS_EMISSION - fingersRecognized; // never-emitted division remainder
+        amount = fingersPendingNoStakers + dust;
+        require(amount > 0, "nothing");
+        fingersPendingNoStakers = 0;
+        fingersRecognized = FINGERS_EMISSION; // mark the dust consumed so it can't be swept twice
+        fingers.safeTransfer(to, amount);
+        emit FingersLeftoverSwept(to, amount);
+    }
+
+    /// @dev Recognize elapsed emission: route to stakers (accPerShare) or hold for the team (noStakers).
+    function _accrueFingers() private {
+        uint256 rate = fingersRate;
+        if (rate == 0) return;
+        uint256 end = fingersEnd;
+        uint256 nowT = block.timestamp < end ? block.timestamp : end;
+        uint256 last = fingersLastAt;
+        if (nowT <= last) return;
+        uint256 amount = (nowT - last) * rate;
+        uint256 remaining = FINGERS_EMISSION - fingersRecognized;
+        if (amount > remaining) amount = remaining;
+        fingersLastAt = nowT;
+        if (amount == 0) return;
+        fingersRecognized += amount;
+        if (totalStaked == 0) {
+            fingersPendingNoStakers += amount;       // reserved for team/LP
+        } else {
+            fingersAccPerShare += (amount * PRECISION) / totalStaked;
+        }
+    }
+
+    /// @dev Settle a user's accrued $FINGERS at the current share level.
+    function _harvestFingers(address user) private {
+        _accrueFingers();
+        uint256 shares = stakedCount[user];
+        if (shares == 0) return;
+        uint256 owed = (shares * fingersAccPerShare) / PRECISION - fingersDebt[user];
+        if (owed > 0) {
+            fingers.safeTransfer(user, owed);
+            emit Claimed(address(fingers), user, owed);
+        }
+    }
+
+    /// @notice A staker's currently-claimable $FINGERS emission.
+    function pendingFingers(address user) external view returns (uint256) {
+        uint256 acc = fingersAccPerShare;
+        uint256 rate = fingersRate;
+        if (rate != 0 && totalStaked > 0) {
+            uint256 nowT = block.timestamp < fingersEnd ? block.timestamp : fingersEnd;
+            if (nowT > fingersLastAt) {
+                uint256 amount = (nowT - fingersLastAt) * rate;
+                uint256 remaining = FINGERS_EMISSION - fingersRecognized;
+                if (amount > remaining) amount = remaining;
+                acc += (amount * PRECISION) / totalStaked;
+            }
+        }
+        return (stakedCount[user] * acc) / PRECISION - fingersDebt[user];
+    }
+
+    /// @notice Emission snapshot for the UI: rate/sec, end ts, seconds left, distributed, total.
+    function fingersEmissionInfo() external view returns (uint256 rate, uint256 endsAt, uint256 secsLeft, uint256 recognized, uint256 total) {
+        rate = fingersRate;
+        endsAt = fingersEnd;
+        secsLeft = block.timestamp >= fingersEnd ? 0 : fingersEnd - block.timestamp;
+        recognized = fingersRecognized;
+        total = FINGERS_EMISSION;
     }
 
     // ── Views ────────────────────────────────────────────────

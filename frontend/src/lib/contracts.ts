@@ -1,4 +1,4 @@
-import type { Address } from "viem";
+import { formatUnits, type Address } from "viem";
 import {
   FingersMeABI, FingersTokenABI, FingersWinnerNFTABI, FingersLoserNFTABI,
   FingersNFTStakingABI, FingersClaimABI, FingersStakingABI, FingersZapABI,
@@ -20,22 +20,42 @@ const env = (k: string, fallback: Address): Address => {
 // safe to ship; they are baked as defaults so the static (GitHub Pages) build is wired without an
 // .env. A VITE_ADDR_* env var still overrides any of them for local/preview against another deploy.
 export const addresses = {
-  usdg:          env("VITE_ADDR_USDG",          "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"),
-  game:          env("VITE_ADDR_GAME",          "0x13e011D2432beF48D137d8F908180e2caA70E0Bf"),
-  token:         env("VITE_ADDR_TOKEN",         "0xDE8Ba322DbB3bB9CD015bD9E6F55B87cBb3710fE"),
-  winnerNFT:     env("VITE_ADDR_WINNER",        "0x61995eF4d05847C0D435D04e5B573099B7a22B88"),
-  loserNFT:      env("VITE_ADDR_LOSER",         "0x7824F544b78CfDA141636c6B4397264b94e3F66C"),
-  nftStaking:    env("VITE_ADDR_NFTSTAKING",    "0xb3d580df0Da4B65BB1f52DDA23136dDCBb9A63ED"),
-  claim:         env("VITE_ADDR_CLAIM",         "0x5800395587731311D913208b5197b9DD37a51d35"),
-  fingersStaking:env("VITE_ADDR_FSTAKING",      "0x193A4E8EB44f2D22De944f905B944f0feD52e8e4"),
+  // Payment / quote token = NVDA (NVIDIA • Robinhood RWA). Key kept as `usdg` (the quote slot).
+  usdg:          env("VITE_ADDR_USDG",          "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC"),
+  game:          env("VITE_ADDR_GAME",          "0xaa56e7c3DFA0aFD4BcE07B8F199D407B9B2773e7"),
+  token:         env("VITE_ADDR_TOKEN",         "0x373e9aF0d31EaB9e7A461c736Cc9314f4C05FbBf"),
+  winnerNFT:     env("VITE_ADDR_WINNER",        "0x11784c7925b8F01B507DD6f6cefb8Eaf162a5c27"),
+  loserNFT:      env("VITE_ADDR_LOSER",         "0xada2AcC79F15Aa23766Fa7832dF65E3d1F256874"),
+  nftStaking:    env("VITE_ADDR_NFTSTAKING",    "0xF0638115CEade6eF789b9925039e0342275eed9F"),
+  claim:         env("VITE_ADDR_CLAIM",         Z),
+  fingersStaking:env("VITE_ADDR_FSTAKING",      "0xfDb7E5C5ed42b279860bb0cFaDe0102F4637C003"),
   zap:           env("VITE_ADDR_ZAP",           Z),
   // Owner tooling / manual-LP peripherals (not user-facing swaps)
-  hook:          env("VITE_ADDR_HOOK",          "0x571462dcAe834e6767F50EcC3944f28D38a74044"),
-  migrator:      env("VITE_ADDR_MIGRATOR",      "0xb5dfc88094A7A1E92D7318ae1C2224922FEa6f0a"),
-  seeder:        env("VITE_ADDR_SEEDER",        "0xdAc80c0d04fdbA30950844DDac99eD6D5Cc58360"),
+  hook:          env("VITE_ADDR_HOOK",          "0x9c97C060f6bd4F49aeD662825bBc86Bbd850c044"),
+  migrator:      env("VITE_ADDR_MIGRATOR",      "0xC803a6C3c8ca7fE8867aC16A83a4f49ce5A142Af"),
+  seeder:        env("VITE_ADDR_SEEDER",        "0x908803b8344874863cdB0D4273A70a7808f0054c"),
 } as const;
 
 export const isDeployed = (a: Address) => a !== Z;
+
+// ── Payment token (the presale settles in NVDA — the "first RWA presale") ──
+export const PAY = { symbol: "NVDA", name: "NVIDIA • Robinhood", decimals: 18 } as const;
+
+/**
+ * Format a NVDA amount for display. Big numbers get 2–4 dp; small numbers keep enough
+ * decimals to stay visible (up to `smallMax`, default 10) instead of rounding to "0.00".
+ */
+export function fmtPay(v?: bigint, opts?: { smallMax?: number; bigMax?: number }): string {
+  if (v === undefined || v === null) return "—";
+  const s = formatUnits(v, PAY.decimals);
+  if (!s.includes(".")) return Number(s).toLocaleString();
+  const [intPart, fracRaw] = s.split(".");
+  const big = intPart !== "0" && intPart !== "-0";
+  const max = big ? (opts?.bigMax ?? 4) : (opts?.smallMax ?? 10);
+  const frac = fracRaw.slice(0, max).replace(/0+$/, "");
+  const intFmt = big ? Number(intPart).toLocaleString() : intPart;
+  return frac ? `${intFmt}.${frac}` : intFmt;
+}
 
 export const abi = {
   game: FingersMeABI,

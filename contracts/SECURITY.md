@@ -107,6 +107,22 @@
   *Tested: finalize mid-raise blocks new commits; raiseInfo reflects live state.*
 - Read-only `raiseInfo()` / `timeLeft()` added for the UI countdown + analytics (no state change).
 
+### New in v4 (reviewed 2026-08-21): NVDA payment + $FINGERS staking emission
+- **Payment token = NVDA** (tokenized NVIDIA RWA, 18 dec), mintPrice 0.005 NVDA. Purely a deploy-config
+  change — the game/staking are token-agnostic (`IERC20`); all invariants (bucket partition, loss split,
+  sell-back, emergency vote) hold identically with NVDA as the quote token.
+- **50M $FINGERS is EMITTED to NFT stakers over 90 days** (replaces the one-time FingersClaim). Implemented
+  as a SEPARATE track in FingersNFTStaking (does not touch the balance-delta USDG/NVDA reward set):
+  `startFingersEmission(token, dur)` (emissionAdmin-only, once, requires the 50M already funded) sets
+  `rate = 50M/dur`. `_accrueFingers()` recognizes `elapsed*rate` (capped at 50M) on every stake/unstake/claim,
+  routing it to `fingersAccPerShare` (split by staked-NFT count → dilutes) or, when nobody is staked, to
+  `fingersPendingNoStakers` (reserved for the team, NOT folded to a late staker). `pendingFingers(user)`
+  mirrors the accrual for the UI. After the window, `sweepFingersLeftover(to)` pulls ONLY
+  `pendingNoStakers + never-emitted division dust` to the LP wallet — provably never staker-owed funds
+  (those live in accPerShare, claimable forever). `emissionAdmin` can ONLY start/sweep — it can never move a
+  staked NFT or seize a staker's rewards (custody-safety preserved). *Tested: admin/once/underfunded guards,
+  streaming + dilution + claim payout, recognized ≤ 50M cap, full no-staker sweep after end.*
+
 ## Residual risks (documented, must be addressed operationally)
 1. **v4 swap-path fork tests — DONE (pass on the live Robinhood v4 PoolManager).** Hook fee-take/
    settle + burn + reflexive buyback, zap asset→USDG swap + commit, basket auto-seed
@@ -124,7 +140,7 @@
 6. **Independent audit** — REQUIRED before real funds.
 
 ## Test status
-**36/36 tests green — 32 unit + 4 live Robinhood-v4 fork** (v3 added 3: rounds/countdown/finalize; v2 added 3: free-credits,
+**38/38 tests green — 34 unit + 4 live Robinhood-v4 fork** (v3 added 3: rounds/countdown/finalize; v2 added 3: free-credits,
 sell-back, vote-gated emergency). `scripts/simulate.js` reconciles every USDG bucket end-to-end and
 projects to the 1,000,000-winner scale. Compiles clean (viaIR, cancun).
 

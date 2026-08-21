@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
-import { formatUnits } from "viem";
 import toast from "react-hot-toast";
-import { addresses, abi, isDeployed } from "../lib/contracts";
+import { addresses, abi, isDeployed, fmtPay } from "../lib/contracts";
 import { useOwnedNfts, useStakedNfts } from "../lib/useOwnedNfts";
 
 export function NftStakePanel() {
@@ -18,6 +17,7 @@ export function NftStakePanel() {
 
   const { data: staked } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "stakedCount", args: address ? [address] : undefined, query: { enabled: !!address && deployed, refetchInterval: 12_000 } });
   const { data: pend } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pending", args: address ? [addresses.usdg, address] : undefined, query: { enabled: !!address && deployed, refetchInterval: 12_000 } });
+  const { data: pendF } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pendingFingers", args: address ? [address] : undefined, query: { enabled: !!address && deployed, refetchInterval: 12_000 } });
   const { data: totalStaked } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "totalStaked", query: { enabled: deployed, refetchInterval: 15_000 } });
 
   const manualIds = manual.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean).map((x) => { try { return BigInt(x); } catch { return null; } }).filter((x): x is bigint => x !== null);
@@ -44,7 +44,7 @@ export function NftStakePanel() {
     } catch (e: any) { toast.error(err(e)); } finally { setBusy(false); }
   }
   async function claim() {
-    try { setBusy(true); const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "claim", args: [] }); await publicClient!.waitForTransactionReceipt({ hash }); toast.success("Claimed USDG rewards 💰"); }
+    try { setBusy(true); const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "claim", args: [] }); await publicClient!.waitForTransactionReceipt({ hash }); toast.success("Claimed NVDA rewards 💰"); }
     catch (e: any) { toast.error(err(e)); } finally { setBusy(false); }
   }
 
@@ -54,10 +54,11 @@ export function NftStakePanel() {
     <div className="grid two">
       <div className="card glow">
         <h2>🔒 Stake your Winners</h2>
-        <p className="sub">Staked Winners earn <b style={{ color: "var(--lime)" }}>25% of every loss</b> in USDG, split pro-rata by how many you stake. Claiming $FINGERS never burns them — keep them working.</p>
-        <div className="statbar" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 16 }}>
+        <p className="sub">Staked Winners earn <b style={{ color: "var(--lime)" }}>25% of every loss</b> in NVDA <b>and</b> a share of the <b style={{ color: "var(--gold)" }}>50M $FINGERS</b> 90-day emission — both split by how many you stake. Staking never burns them.</p>
+        <div className="statbar" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 16 }}>
           <div className="stat"><div className="k">Your staked</div><div className="v green">{staked !== undefined ? (staked as bigint).toString() : "—"}</div></div>
-          <div className="stat"><div className="k">Pending USDG</div><div className="v gold">{pend !== undefined ? Number(formatUnits(pend as bigint, 6)).toFixed(2) : "—"}</div></div>
+          <div className="stat"><div className="k">Pending NVDA</div><div className="v gold">{fmtPay(pend as bigint | undefined)}</div></div>
+          <div className="stat"><div className="k">Pending $FINGERS</div><div className="v gold">{pendF !== undefined ? Number((pendF as bigint) / (10n ** 14n)) / 10000 : "—"}</div></div>
         </div>
 
         <div className="row" style={{ marginBottom: 8 }}>
@@ -67,7 +68,7 @@ export function NftStakePanel() {
           <button className="btn alt" disabled={!isConnected || busy || stakedNfts.ids.length === 0} onClick={() => unstake(stakedNfts.ids)}>
             Unstake all ({stakedNfts.ids.length})
           </button>
-          <button className="btn gold-btn" style={{ background: "linear-gradient(135deg,var(--gold),var(--gold-deep))", color: "#2a1c00" }} disabled={!isConnected || busy} onClick={claim}>Claim USDG</button>
+          <button className="btn gold-btn" style={{ background: "linear-gradient(135deg,var(--gold),var(--gold-deep))", color: "#2a1c00" }} disabled={!isConnected || busy} onClick={claim}>Claim NVDA</button>
         </div>
         {(owned.error || stakedNfts.error) && (
           <>
@@ -84,7 +85,7 @@ export function NftStakePanel() {
 
       <div className="card">
         <h2>🏆 Pool</h2>
-        <p className="sub">Every losing bet pipes 25% of its USDG here. The more Winners staked, the thinner each slice — but volume keeps the sauce flowing.</p>
+        <p className="sub">Every losing bet pipes 25% of its NVDA here. The more Winners staked, the thinner each slice — but volume keeps the sauce flowing.</p>
         <div className="stat" style={{ marginBottom: 12 }}><div className="k">Total Winners staked</div><div className="v green">{totalStaked !== undefined ? (totalStaked as bigint).toLocaleString() : "—"}</div></div>
         <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)" }}>
           <img src="/won_NFT.png" alt="winners" style={{ width: "100%", display: "block" }} />

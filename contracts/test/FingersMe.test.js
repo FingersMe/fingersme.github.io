@@ -403,6 +403,72 @@ describe("FingersMe — emergency withdraw (winner-NFT vote gated)", function ()
   });
 });
 
+describe("FingersNFTStaking — $FINGERS 90-day emission", function () {
+  async function setupEmission() {
+    const f = await deployFixture(9999); // ~100% win → easy winners
+    const a = await commitAndClassify(f.game, f.alice, 6, 9999);
+    const b = await commitAndClassify(f.game, f.bob, 6, 9999);
+    await mine(2);
+    for (const id of [...a.wins, ...b.wins]) await f.game.reveal(id);
+    f.aTokens = await winnerTokensOf(f.winner, f.alice);
+    f.bTokens = await winnerTokensOf(f.winner, f.bob);
+    f.EMISSION = await f.token.CLAIM_ALLOCATION();
+    f.DUR = 90 * 24 * 60 * 60;
+    return f;
+  }
+
+  it("guards start (admin/once/funded) and streams to stakers, diluting as more stake", async () => {
+    const { staking, token, winner, alice, bob, aTokens, bTokens, EMISSION, DUR } = await setupEmission();
+    if (!aTokens.length || !bTokens.length) return;
+    const stAddr = await staking.getAddress(), tkAddr = await token.getAddress();
+
+    // cannot start underfunded
+    await expect(staking.startFingersEmission(tkAddr, DUR)).to.be.revertedWith("underfunded");
+    await token.transfer(stAddr, EMISSION);
+    // non-admin cannot start
+    await expect(staking.connect(alice).startFingersEmission(tkAddr, DUR)).to.be.revertedWith("not admin");
+    await staking.startFingersEmission(tkAddr, DUR);
+    await expect(staking.startFingersEmission(tkAddr, DUR)).to.be.revertedWith("already started");
+
+    await winner.connect(alice).setApprovalForAll(stAddr, true);
+    await winner.connect(bob).setApprovalForAll(stAddr, true);
+    await staking.connect(alice).stake(aTokens);
+    await ethers.provider.send("evm_increaseTime", [10 * 24 * 60 * 60]); // 10 days, alice alone
+    await ethers.provider.send("evm_mine", []);
+    const aSolo = await staking.pendingFingers(alice.address);
+    expect(aSolo).to.be.greaterThan(0n);
+    expect(await staking.pendingFingers(bob.address)).to.equal(0n);
+
+    // bob stakes → from here rewards split by NFT count
+    await staking.connect(bob).stake(bTokens);
+    await ethers.provider.send("evm_increaseTime", [10 * 24 * 60 * 60]);
+    await ethers.provider.send("evm_mine", []);
+    const bAfter = await staking.pendingFingers(bob.address);
+    expect(bAfter).to.be.greaterThan(0n);
+    // claim actually pays FINGERS out
+    const before = await token.balanceOf(alice.address);
+    await staking.connect(alice).claim();
+    expect(await token.balanceOf(alice.address)).to.be.greaterThan(before);
+    // never over-emit: recognized ≤ 50M
+    expect(await staking.fingersRecognized()).to.be.lessThanOrEqual(EMISSION);
+  });
+
+  it("reserves no-staker emission and lets the admin sweep leftover to LP after the window", async () => {
+    const { staking, token, alice, EMISSION, DUR } = await setupEmission();
+    const stAddr = await staking.getAddress(), tkAddr = await token.getAddress();
+    await token.transfer(stAddr, EMISSION);
+    await staking.startFingersEmission(tkAddr, DUR);
+    // nobody stakes the whole window
+    await ethers.provider.send("evm_increaseTime", [DUR + 100]);
+    await ethers.provider.send("evm_mine", []);
+    // cannot sweep before... it's after end now; non-admin blocked
+    await expect(staking.connect(alice).sweepFingersLeftover(alice.address)).to.be.revertedWith("not admin");
+    // admin sweeps ~all 50M (nobody earned) to LP
+    const lp = alice.address;
+    await expect(staking.sweepFingersLeftover(lp)).to.changeTokenBalance(token, alice, EMISSION);
+  });
+});
+
 describe("FingersClaim — pro-rata $FINGERS to winners", function () {
   it("opens only when settled, pays perNFTShare per winner NFT, no double claim, no burn", async () => {
     const { game, alice, winner, claim, token } = await deployFixture();

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import { decodeEventLog, formatUnits, maxUint256 } from "viem";
 import toast from "react-hot-toast";
-import { addresses, abi, erc20Abi, isDeployed } from "../lib/contracts";
+import { addresses, abi, erc20Abi, isDeployed, fmtPay, PAY } from "../lib/contracts";
 import { ResultModal, type Res } from "../components/ResultModal";
 
 type Attempt = { id: bigint; block: bigint };
@@ -38,7 +38,7 @@ export function MintPanel() {
   const credits = (freeCredits as bigint | undefined) ?? 0n;
   const canFree = isOwner || credits > 0n;
 
-  const mintPrice = (price as bigint) ?? 1_000_000n;
+  const mintPrice = (price as bigint) ?? 5_000_000_000_000_000n; // 0.005 NVDA
   const cost = mintPrice * BigInt(count);
   const needsApprove = (allowance as bigint | undefined) !== undefined && (allowance as bigint) < cost;
 
@@ -50,7 +50,7 @@ export function MintPanel() {
       const hash = await writeContractAsync({ address: addresses.usdg, abi: erc20Abi, functionName: "approve", args: [addresses.game, maxUint256] });
       await publicClient!.waitForTransactionReceipt({ hash });
       await refetchAllow();
-      toast.success("USDG approved");
+      toast.success("NVDA approved");
     } catch (e: any) { toast.error(shortErr(e)); } finally { setBusy(false); }
   }
 
@@ -133,7 +133,7 @@ export function MintPanel() {
     <div className="grid two">
       <div className="card glow">
         <h2>Pull the trigger</h2>
-        <p className="sub">Each play costs <b className="mono">{formatUnits(mintPrice, 6)} USDG</b> and gets its own provably-fair roll. Batch up to 50.</p>
+        <p className="sub">Each play costs <b className="mono">{fmtPay(mintPrice)} {PAY.symbol}</b> — the <b>first RWA presale</b>, settled in tokenized NVIDIA. Its own provably-fair roll. Batch up to 50.</p>
 
         <label className="hint" style={{ display: "block", marginBottom: 6 }}>Number of plays</label>
         <div className="row">
@@ -145,13 +145,13 @@ export function MintPanel() {
 
         <div className="row" style={{ justifyContent: "space-between", margin: "16px 0" }}>
           <span className="muted">Total cost</span>
-          <span className="mono" style={{ fontSize: 18, fontWeight: 800 }}>{formatUnits(cost, 6)} USDG</span>
+          <span className="mono" style={{ fontSize: 18, fontWeight: 800 }}>{fmtPay(cost)} {PAY.symbol}</span>
         </div>
 
         {!isConnected ? (
           <div className="notice">Connect your wallet to play.</div>
         ) : needsApprove ? (
-          <button className="btn full" disabled={busy} onClick={approve}>{busy ? "Approving…" : "Approve USDG"}</button>
+          <button className="btn full" disabled={busy} onClick={approve}>{busy ? "Approving…" : "Approve NVDA"}</button>
         ) : (
           <button className="btn full pulse" disabled={busy || isPending} onClick={() => commit(false)}>{busy ? "Committing…" : `🎲 Play ${count}×`}</button>
         )}
@@ -163,8 +163,8 @@ export function MintPanel() {
         )}
 
         <div className="hint">
-          Balance: <span className="mono">{bal !== undefined ? formatUnits(bal as bigint, 6) : "—"} USDG</span> ·
-          {" "}No USDG? Use the <b>Swap → USDG</b> tab to bring any asset in via LI.FI.
+          Balance: <span className="mono">{fmtPay(bal as bigint | undefined)} {PAY.symbol}</span> ·
+          {" "}No NVDA? Use the <b>Swap → NVDA</b> tab to bring any asset in via LI.FI.
         </div>
       </div>
 

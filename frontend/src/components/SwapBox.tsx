@@ -116,7 +116,7 @@ export function SwapBox() {
           </div>
           <div className="sb-inp">
             <input readOnly value={quote ? fmtNvda(quote.toAmount) : loading ? "…" : "0.0"} />
-            <span className="sb-token nvda-ink">▲ NVDA</span>
+            <span className="sb-token nvda-ink" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><img src="/nvda.png" alt="" style={{ width: 20, height: 20, borderRadius: 5 }} /> NVDA</span>
           </div>
         </div>
       </div>

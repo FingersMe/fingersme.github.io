@@ -4,6 +4,7 @@ import { formatUnits, decodeEventLog } from "viem";
 import toast from "react-hot-toast";
 import { addresses, abi, isDeployed, fmtPay } from "../lib/contracts";
 import { usePrices, usd } from "../lib/usePrices";
+import { GambleModal, type GambleState } from "../components/GambleModal";
 
 const fmtF = (v?: bigint) => v === undefined ? "—" : Number(formatUnits(v, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -13,6 +14,7 @@ export function ClaimPanel() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const [busy, setBusy] = useState(false);
+  const [gm, setGm] = useState<GambleState>(null);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => { const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000); return () => clearInterval(t); }, []);
 
@@ -51,39 +53,40 @@ export function ClaimPanel() {
     } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); } finally { setBusy(false); }
   }
 
-  // Reveal a live/committed gamble; returns true if it resolved.
-  async function reveal() {
+  // Reveal a live/committed gamble; drives the modal to won/lost.
+  async function reveal(fromModal = false) {
     try {
       setBusy(true);
+      if (fromModal) setGm((g) => g ? { ...g, phase: "flipping" } : g);
       const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "gambleClaimReveal", args: [] });
       const rc = await publicClient!.waitForTransactionReceipt({ hash });
-      let won = false, payout = 0n;
+      let won = false, payout = 0n, amt = 0n;
       for (const log of rc.logs) {
         try { const ev = decodeEventLog({ abi: abi.nftStaking, data: log.data, topics: log.topics });
-          if (ev.eventName === "GambleRevealed") { won = (ev.args as any).won; payout = (ev.args as any).payout as bigint; } } catch {}
+          if (ev.eventName === "GambleRevealed") { won = (ev.args as any).won; payout = (ev.args as any).payout as bigint; amt = (ev.args as any).amountIn as bigint; } } catch {}
       }
-      if (won) toast.success(`🎉 DOUBLE! You won ${fmtF(payout)} $FINGERS!`, { duration: 6000 });
-      else toast("💀 Nothing this time — your stake fed the jackpot.", { icon: "🎲", duration: 6000 });
+      setGm({ phase: won ? "won" : "lost", amount: fmtF(amt), payout: fmtF(payout) });
       refetchPend(); refetchPg();
-    } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); } finally { setBusy(false); }
+    } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); setGm(null); } finally { setBusy(false); }
   }
 
-  // Commit the claim to a 50/50, then auto-reveal a block later.
+  // Commit the claim to a 50/50, then auto-reveal a block later. Driven by the modal.
   async function gamble() {
     try {
       setBusy(true);
+      setGm((g) => g ? { ...g, phase: "flipping" } : g);
       const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "gambleClaimCommit", args: [] });
       const rc = await publicClient!.waitForTransactionReceipt({ hash });
-      toast("🎲 Bet placed — revealing your flip…", { icon: "🎲" });
       refetchPg();
       // wait for the next block, then reveal
       for (let i = 0; i < 20; i++) { const bn = await publicClient!.getBlockNumber(); if (bn > rc.blockNumber) break; await new Promise((r) => setTimeout(r, 1500)); }
       await reveal();
-    } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); setBusy(false); }
+    } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); setGm(null); setBusy(false); }
   }
 
   return (
     <div className="grid" style={{ gap: 18, maxWidth: 720, margin: "0 auto" }}>
+      <GambleModal state={gm} onConfirm={gamble} onClose={() => setGm(null)} />
       <div className="card glow">
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
           <h2>🎁 Earn $FINGERS by staking</h2>
@@ -110,13 +113,13 @@ export function ClaimPanel() {
             <div className="notice pulse" style={{ marginBottom: 12, borderColor: "var(--green)", color: "var(--green)" }}>
               🎲 Bet placed: <b>{fmtF(gambleAmt)} $FINGERS</b> riding on the flip. {gambleRevealable ? "Reveal it now!" : "Waiting for the next block…"}
             </div>
-            <button className="btn full win" disabled={busy || !gambleRevealable} onClick={reveal}>{busy ? "Revealing…" : "🎲 Reveal my flip"}</button>
+            <button className="btn full win" disabled={busy || !gambleRevealable} onClick={() => reveal(true)}>{busy ? "Revealing…" : "🎲 Reveal my flip"}</button>
           </>
         ) : (
           <>
             <div className="claim-lines">
               <div className="claim-line">
-                <span className="cl-tok"><img src="/logox.png" alt="" /> NVDA yield</span>
+                <span className="cl-tok"><img src="/nvda.png" alt="" /> NVDA yield</span>
                 <span className="cl-amt">{fmtPay(nvdaOwed)}<i>{nUsd(nvdaOwed)}</i></span>
               </div>
               <div className="claim-line">
@@ -135,10 +138,9 @@ export function ClaimPanel() {
                 <span className="badge win">🎰 Jackpot {fmtF(jackpot as bigint | undefined)}</span>
               </div>
               <p className="gc-sub">Flip your <b>{fmtF(claimable)} $FINGERS</b> on a provably-fair 50/50. <b className="up">Win →</b> up to <b>2×</b> (bonus from the jackpot). <b className="dn">Lose →</b> your $FINGERS drops into the jackpot for the next winner. No burns, supply-neutral — pure player-vs-player. Your NVDA yield is never at risk; only the $FINGERS rides.</p>
-              <button className="btn full" disabled={!isConnected || busy || claimable === 0n} onClick={() => {
-                if (!confirm(`Gamble your ${fmtF(claimable)} $FINGERS on a 50/50?\n\nWIN → up to 2× (from the jackpot)\nLOSE → it feeds the jackpot for the next winner\n\nYour NVDA yield stays safe. Continue?`)) return;
-                gamble();
-              }}>
+              <button className="btn full" disabled={!isConnected || busy || claimable === 0n} onClick={() =>
+                setGm({ phase: "confirm", amount: fmtF(claimable), payout: fmtF(claimable * 2n), jackpot: fmtF(jackpot as bigint | undefined) })
+              }>
                 {busy ? "Flipping…" : `🎲 Gamble ${fmtF(claimable)} $FINGERS → up to ${fmtF(claimable * 2n)}`}
               </button>
             </div>

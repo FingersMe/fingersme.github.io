@@ -29,7 +29,7 @@ export function WalletHoldings() {
         <span className="badge gold mono">{address?.slice(0, 6)}…{address?.slice(-4)}</span>
       </div>
       <div className="holdings-grid">
-        <Holding art="/logox.png" label="NVDA" tone="gold"
+        <Holding art="/nvda.png" label="NVDA" tone="gold"
           value={nvdaNum !== undefined ? nvdaNum.toLocaleString(undefined, { maximumFractionDigits: 4 }) : deployed ? undefined : "—"}
           sub={nvdaNum !== undefined ? usd(nvdaNum * nvdaUsd) : undefined} deployed={deployed} />
         <Holding art="/logo.png" label="$FINGERS" tone="gold"

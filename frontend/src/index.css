@@ -396,6 +396,23 @@ body::after {
 .modal-title { font-family: "Luckiest Guy", cursive; font-size: 34px; margin: 0 0 8px; letter-spacing: .01em; text-shadow: 0 4px 0 rgba(0,0,0,.3); }
 .modal-sub { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0 0 16px; }
 
+/* ── Gamble (double-or-nothing) modal ── */
+.gamble-modal { text-align: center; }
+.gm-coin { width: 92px; height: 92px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center; font-size: 46px;
+  background: radial-gradient(circle at 35% 30%, #10361f, #05140c); border: 2px solid rgba(47,230,160,.5); box-shadow: 0 0 34px rgba(22,199,132,.4), inset 0 0 20px rgba(0,0,0,.5); transform-style: preserve-3d; }
+.gamble-modal.win .gm-coin { border-color: rgba(47,230,160,.7); box-shadow: 0 0 44px rgba(47,230,160,.5); }
+.gamble-modal.lose .gm-coin { border-color: rgba(234,75,91,.6); box-shadow: 0 0 34px rgba(234,75,91,.35); background: radial-gradient(circle at 35% 30%, #35141a, #140507); }
+.gm-odds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 14px; }
+.gm-odd { border: 1px solid var(--border); border-radius: 12px; padding: 12px 10px; display: grid; gap: 3px; background: var(--surface); }
+.gm-odd.win { border-color: rgba(47,230,160,.4); background: linear-gradient(160deg, rgba(47,230,160,.09), transparent); }
+.gm-odd.lose { border-color: rgba(234,75,91,.35); background: linear-gradient(160deg, rgba(234,75,91,.07), transparent); }
+.gm-k { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gm-odd.win .gm-k { color: var(--green); } .gm-odd.lose .gm-k { color: var(--down); }
+.gm-v { font-size: 15px; font-weight: 800; } .gm-v b { color: var(--green-bright); }
+.gm-odd.lose .gm-v b { color: var(--down); }
+.gm-s { font-size: 11px; color: var(--muted); font-family: "JetBrains Mono", monospace; }
+.gm-fine { font-size: 11.5px; color: var(--muted); margin: 0 0 16px; }
+
 /* confetti burst */
 .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .confetti > span { position: absolute; top: -8%; border-radius: 2px; opacity: .95; animation: confall linear forwards; }

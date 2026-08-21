@@ -12,42 +12,41 @@ const ROBINHOOD_WETH = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"; // routes W
 
 const config: Partial<WidgetConfig> = {
   integrator: "fingers-me",
-  // Land the user on Robinhood NVDA — the token you play with.
+  // Land the user on Robinhood NVDA — the token you play with. Default from a pair with a live route.
   toChain: ROBINHOOD_CHAIN_ID,
-  toToken: addresses.usdg,
-  // Start from a pair that actually has a live route so the widget resolves out of the box.
-  // Users can still switch the source to any chain/token (Across etc. bridges into Robinhood).
+  toToken: addresses.usdg,        // NVDA
   fromChain: ROBINHOOD_CHAIN_ID,
-  fromToken: ROBINHOOD_WETH,
+  fromToken: ROBINHOOD_WETH,      // WETH → NVDA routes via Nordstern (verified)
   appearance: "dark",
   theme: {
     palette: {
-      primary: { main: "#16c784" },   // Fingers gold
-      secondary: { main: "#2fe6a0" },  // Robinhood lime
-      background: { paper: "#14110a", default: "#0c0a06" },
-      text: { primary: "#f6efe0", secondary: "#a99e83" },
+      primary: { main: "#16c784" },
+      secondary: { main: "#2fe6a0" },
+      background: { paper: "#0b1114", default: "#05080a" },
+      text: { primary: "#eef4f2", secondary: "#7f948d" },
+      grey: { 300: "#1b2a2f", 700: "#1b2a2f", 800: "#0b1114" },
     },
     shape: { borderRadius: 14, borderRadiusSecondary: 10 },
-    container: { border: "1px solid #2c2513", borderRadius: "16px" },
+    container: { border: "1px solid #1b2a2f", borderRadius: "16px" },
   },
 };
 
 export function SwapPanel() {
   return (
-    <div className="grid" style={{ gap: 18 }}>
+    <div className="grid" style={{ gap: 16 }}>
       <div className="card glow">
-        <h2>Bring funds in — swap to NVDA</h2>
-        <p className="sub">
-          Play with whatever you already hold. Swap or bridge any asset from any chain straight into
-          <b> NVDA on Robinhood</b> (powered by LI.FI), then hop over to <b>Play</b>. Your wallet, your route —
-          nothing is custodied here.
+        <div className="an-head"><h2>Bring funds in — swap to NVDA</h2><span className="badge win">via LI.FI</span></div>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          Play with whatever you already hold. Swap or bridge any asset — ETH, USDC, stables, any chain — straight into
+          <b className="up"> NVDA on Robinhood</b>, then hop to <b>Play</b>. Non-custodial: your wallet, your route.
         </p>
-        <div className="hint" style={{ marginTop: 0 }}>
-          👉 <b>Connect your wallet inside the box below</b> (it has its own connect button) so it can find live routes.
-          Seeing “no routes”? Try a bigger amount, or pick a source token you actually hold — thin pairs may have none.
+        <div className="mflow">
+          <div className="mrow"><span className="tag2 t-win">STEP 1</span><span className="arrow">→</span><p><b>Connect inside the widget below</b> (it has its own connect) so it can fetch live routes.</p></div>
+          <div className="mrow"><span className="tag2 t-win">STEP 2</span><span className="arrow">→</span><p>Pick a token you actually hold (WETH → NVDA works out of the box; ETH/USDC bridge in too), enter an amount, execute.</p></div>
+          <div className="mrow"><span className="tag2 t-house">HEADS UP</span><span className="arrow">→</span><p>“No routes” usually means the source token isn’t connected/held or the amount is too small — try a bigger amount or a token in your wallet.</p></div>
         </div>
       </div>
-      <div style={{ maxWidth: 520, margin: "0 auto", width: "100%" }}>
+      <div className="swap-wrap">
         <Suspense fallback={<div className="card glow"><div className="notice">Loading the swap widget…</div></div>}>
           <LiFiWidget integrator="fingers-me" config={config} />
         </Suspense>

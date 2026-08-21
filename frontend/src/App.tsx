@@ -14,13 +14,15 @@ import { ClaimPanel } from "./panels/ClaimPanel";
 import { FingersPanel } from "./panels/FingersPanel";
 import { AdminPanel } from "./panels/AdminPanel";
 import { AnalyticsPanel } from "./panels/AnalyticsPanel";
-import { IconHow, IconPlay, IconSwap, IconGallery, IconStake, IconClaim, IconCoin, IconAdmin, IconChart } from "./components/Icons";
+import { CalcPanel } from "./panels/CalcPanel";
+import { IconHow, IconPlay, IconSwap, IconGallery, IconStake, IconClaim, IconCoin, IconAdmin, IconChart, IconCalc } from "./components/Icons";
 import { robinhood } from "./lib/wagmi";
 import { addresses, abi, isDeployed } from "./lib/contracts";
 
 const TABS = [
   { id: "how", label: "How it works", Icon: IconHow },
   { id: "mint", label: "Play", Icon: IconPlay },
+  { id: "calc", label: "Returns calculator", Icon: IconCalc },
   { id: "swap", label: "Swap → NVDA", Icon: IconSwap },
   { id: "gallery", label: "Gallery & sell-back", Icon: IconGallery },
   { id: "nftstake", label: "Stake NFTs", Icon: IconStake },
@@ -120,6 +122,7 @@ export default function App() {
             <motion.div key={activeLabel} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }}>
               {tab === "how" && <HowPanel />}
               {tab === "mint" && <MintPanel />}
+              {tab === "calc" && <CalcPanel />}
               {tab === "swap" && <SwapPanel />}
               {tab === "gallery" && <GalleryPanel />}
               {tab === "nftstake" && <NftStakePanel />}

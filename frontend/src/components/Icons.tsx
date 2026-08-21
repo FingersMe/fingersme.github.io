@@ -83,6 +83,17 @@ export const IconChart = ({ size = 20, className }: P) => (
   </svg>
 );
 
+// Calculator — returns
+export const IconCalc = ({ size = 20, className }: P) => (
+  <svg {...base(size, className)}>
+    <rect x="5" y="3" width="14" height="18" rx="2.5" />
+    <rect x="7.5" y="5.5" width="9" height="3.2" rx="0.8" fill="currentColor" fillOpacity="0.18" />
+    <path d="M8.5 12.5h0M12 12.5h0M15.5 12.5h0M8.5 16h0M12 16h0M15.5 16v0" />
+    <circle cx="8.5" cy="12.5" r="0.6" fill="currentColor" /><circle cx="12" cy="12.5" r="0.6" fill="currentColor" /><circle cx="15.5" cy="12.5" r="0.6" fill="currentColor" />
+    <circle cx="8.5" cy="16" r="0.6" fill="currentColor" /><circle cx="12" cy="16" r="0.6" fill="currentColor" /><circle cx="15.5" cy="16" r="0.6" fill="currentColor" />
+  </svg>
+);
+
 // Drumstick — logo/brand flourish
 export const IconDrumstick = ({ size = 20, className }: P) => (
   <svg {...base(size, className)}>

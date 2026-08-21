@@ -241,6 +241,42 @@ ul.trust li::before { content: "\25C6"; position: absolute; left: 0; top: 1px; c
 .an-meter > span { display: block; height: 100%; background: linear-gradient(90deg, var(--green-deep), var(--green-bright)); box-shadow: 0 0 16px rgba(22,199,132,.45); transition: width .5s; }
 .an-meter-lbl { color: var(--muted); font-size: 11px; margin-top: 6px; }
 
+/* LI.FI swap container */
+.swap-wrap { max-width: 480px; margin: 0 auto; width: 100%; border-radius: 18px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px var(--border); }
+
+/* ── Returns calculator ── */
+.calc-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (max-width: 700px) { .calc-inputs { grid-template-columns: 1fr; } }
+.calc-field { display: grid; gap: 7px; }
+.calc-field > span { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.calc-money { display: flex; align-items: center; gap: 6px; background: #070d0f; border: 1px solid var(--border); border-radius: 12px; padding: 0 12px; }
+.calc-money b { color: var(--muted); font-family: "JetBrains Mono", monospace; }
+.calc-money input { border: 0 !important; background: transparent !important; padding-left: 2px !important; }
+.calc-quick { display: flex; gap: 6px; }
+.chip-btn { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-weight: 800; font-size: 12px; cursor: pointer; font-family: "JetBrains Mono", monospace; }
+.chip-btn.on { background: linear-gradient(135deg, var(--green), var(--green-deep)); color: #04150e; border-color: transparent; }
+.calc-out { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 700px) { .calc-out { grid-template-columns: 1fr 1fr; } }
+.calc-outcell { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 13px; }
+.calc-outcell .k { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.calc-outcell .v { font-size: 20px; font-weight: 800; margin-top: 4px; }
+.calc-outcell .s { color: var(--muted); font-size: 10.5px; margin-top: 2px; }
+
+.calc-hero { background: radial-gradient(600px 200px at 20% 0%, rgba(22,199,132,.12), transparent 70%), linear-gradient(180deg, var(--surface), var(--bg-2)); }
+.calc-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; }
+.calc-hero-k { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+.calc-hero-v { font-size: clamp(40px, 8vw, 64px); font-weight: 900; line-height: 1; margin-top: 4px; text-shadow: 0 0 30px rgba(22,199,132,.35); }
+.calc-hero-roi { font-size: 15px; font-weight: 800; margin-top: 8px; }
+.calc-hero-meta { display: grid; gap: 8px; min-width: 180px; }
+.calc-hero-meta > div { display: flex; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.calc-hero-meta .k { color: var(--muted); font-size: 12px; } .calc-hero-meta .v { font-weight: 800; font-size: 14px; }
+.calc-slider { display: block; margin-top: 12px; color: var(--muted); font-size: 13px; }
+.calc-slider input[type="range"] { width: 100%; margin-top: 8px; accent-color: var(--green); height: 6px; }
+.ladder { display: grid; gap: 6px; }
+.ladder-row { display: grid; grid-template-columns: 1.4fr 1fr .8fr; gap: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; font-size: 14px; }
+.ladder-row.be { border-color: rgba(22,199,132,.45); background: rgba(22,199,132,.07); }
+.ladder-row > span:nth-child(2), .ladder-row > span:nth-child(3) { text-align: right; }
+
 /* skeleton shimmer for robust loading states */
 @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
 .skel { display: inline-block; height: 1em; min-width: 48px; border-radius: 6px; background: linear-gradient(90deg, #221c10 25%, #2f2716 37%, #221c10 63%); background-size: 800px 100%; animation: shimmer 1.4s linear infinite; color: transparent; }

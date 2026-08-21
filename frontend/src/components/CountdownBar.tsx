@@ -13,11 +13,20 @@ export function CountdownBar() {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => { const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000); return () => clearInterval(t); }, []);
 
-  if (!data) return null;
-  const r = data as unknown as [bigint, bigint, bigint, bigint, boolean, bigint, bigint, bigint, bigint, bigint];
-  const [round, winnerCap, deadline, , live, totalWinners, , , totalUsdgCollected] = r;
+  // Anchor to the CHAIN's own `timeLeft` (deadline − chain time), not deadline − browser time — the
+  // Robinhood chain clock can drift from wall-clock, so this keeps the countdown accurate. We convert
+  // it into a browser-relative end timestamp each refetch, then tick locally.
+  const timeLeftChain = data ? Number((data as any[])[3] as bigint) : 0;
+  const [endTs, setEndTs] = useState<number | null>(null);
+  useEffect(() => {
+    if (data) setEndTs(Math.floor(Date.now() / 1000) + timeLeftChain);
+  }, [timeLeftChain, data]);
 
-  const secsLeft = Math.max(0, Number(deadline) - now);
+  if (!data || endTs === null) return null;
+  const r = data as unknown as [bigint, bigint, bigint, bigint, boolean, bigint, bigint, bigint, bigint, bigint];
+  const [round, winnerCap, , , live, totalWinners, , , totalUsdgCollected] = r;
+
+  const secsLeft = Math.max(0, endTs - now);
   const d = Math.floor(secsLeft / 86400);
   const h = Math.floor((secsLeft % 86400) / 3600);
   const m = Math.floor((secsLeft % 3600) / 60);

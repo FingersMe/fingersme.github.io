@@ -23,9 +23,9 @@ export function ClaimPanel() {
   if (!on) return <div className="card glow"><div className="notice">Staking isn't wired yet.</div></div>;
 
   const r = info as unknown as [bigint, bigint, bigint, bigint, bigint] | undefined;
-  const rate = r?.[0] ?? 0n, endsAt = r?.[1] ?? 0n, recognized = r?.[3] ?? 0n, total = r?.[4] ?? 50_000_000n * 10n ** 18n;
+  const rate = r?.[0] ?? 0n, recognized = r?.[3] ?? 0n, total = r?.[4] ?? 50_000_000n * 10n ** 18n;
   const started = rate > 0n;
-  const secsLeft = started ? Math.max(0, Number(endsAt) - now) : 0;
+  const secsLeft = started ? Number(r?.[2] ?? 0n) : 0; // on-chain seconds left (chain-clock accurate)
   const days = Math.floor(secsLeft / 86400), hrs = Math.floor((secsLeft % 86400) / 3600);
   const pct = total > 0n ? Math.min(100, Number((recognized * 100n) / total)) : 0;
   const myStaked = (staked as bigint | undefined) ?? 0n;

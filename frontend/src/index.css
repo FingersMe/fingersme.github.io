@@ -165,6 +165,26 @@ input:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgb
 .flow-step p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .flow-step .big { font-size: 22px; margin-bottom: 6px; }
 
+/* brief-style: eyebrow, tokenomics split, info cards, trust list */
+.eyebrow { font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+.split { display: flex; height: 46px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); margin: 14px 0 8px; font-family: "JetBrains Mono", monospace; font-weight: 800; }
+.split > div { display: grid; place-items: center; font-size: 12.5px; }
+.split .lp { background: linear-gradient(135deg, var(--gold), var(--gold-deep)); color: #2a1c00; flex: 1; }
+.split .emit { background: linear-gradient(135deg, var(--lime), var(--lime-deep)); color: #142200; flex: 1; }
+.info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 620px) { .info-cards { grid-template-columns: 1fr; } }
+.info-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; transition: transform .18s ease, border-color .2s; }
+.info-card:hover { transform: translateY(-2px); border-color: #4a3d1c; }
+.info-card h4 { margin: 0 0 6px; font-size: 15px; }
+.info-card p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.info-card .k { color: var(--lime); }
+ul.trust { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+ul.trust li { padding-left: 24px; position: relative; color: var(--muted); font-size: 14px; line-height: 1.55; }
+ul.trust li b { color: var(--text); }
+ul.trust li::before { content: "\25C6"; position: absolute; left: 0; top: 1px; color: var(--gold); font-size: 11px; }
+.warn-box { border: 1px solid rgba(245,166,35,.4); background: rgba(245,166,35,.06); border-radius: 12px; padding: 14px 16px; color: var(--orange); font-size: 14px; margin-top: 14px; line-height: 1.5; }
+.warn-box b { color: var(--text); }
+
 /* money-flow diagram rows */
 .mflow { display: grid; gap: 10px; }
 .mrow { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }

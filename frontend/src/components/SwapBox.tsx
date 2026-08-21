@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { addresses } from "../lib/contracts";
 
 const CHAIN = 4663;
-const NATIVE = "0xEeeeeEeeeEeEeeEeEeEeEeEeeeEeEeeeeeeeEEeE"; // LI.FI native placeholder
+const NATIVE = "0x0000000000000000000000000000000000000000"; // Robinhood native ETH (per LI.FI chains)
 const WETH = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73";
 const FROMS = [
   { sym: "ETH", addr: NATIVE, dec: 18, native: true },

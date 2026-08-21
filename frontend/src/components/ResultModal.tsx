@@ -26,7 +26,7 @@ export function ResultModal({ results, onClose }: { results: Res[] | null; onClo
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-art" style={{ borderColor: anyWin ? "rgba(155,232,15,.6)" : "rgba(255,46,139,.6)", boxShadow: `0 0 40px ${anyWin ? "rgba(155,232,15,.35)" : "rgba(255,46,139,.3)"}` }}>
+            <div className="modal-art" style={{ borderColor: anyWin ? "rgba(47,230,160,.6)" : "rgba(234,75,91,.6)", boxShadow: `0 0 40px ${anyWin ? "rgba(47,230,160,.35)" : "rgba(234,75,91,.3)"}` }}>
               <img src={anyWin ? "/won_NFT.png" : "/loses_NFT.png"} alt={anyWin ? "Winner" : "Loser"} />
             </div>
             <h2 className="modal-title" style={{ color: anyWin ? "var(--lime)" : "var(--pink)" }}>
@@ -52,7 +52,7 @@ export function ResultModal({ results, onClose }: { results: Res[] | null; onClo
 
 function Confetti() {
   const bits = Array.from({ length: 70 });
-  const colors = ["#b0f500", "#ffc93c", "#ff2e8b", "#f5a623", "#ffffff"];
+  const colors = ["#2fe6a0", "#16c784", "#ea4b5b", "#2fe6a0", "#ffffff"];
   return (
     <div className="confetti" aria-hidden>
       {bits.map((_, i) => {

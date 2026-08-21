@@ -22,8 +22,8 @@ const config: Partial<WidgetConfig> = {
   appearance: "dark",
   theme: {
     palette: {
-      primary: { main: "#ffc93c" },   // Fingers gold
-      secondary: { main: "#b0f500" },  // Robinhood lime
+      primary: { main: "#16c784" },   // Fingers gold
+      secondary: { main: "#2fe6a0" },  // Robinhood lime
       background: { paper: "#14110a", default: "#0c0a06" },
       text: { primary: "#f6efe0", secondary: "#a99e83" },
     },

@@ -1,7 +1,7 @@
 import { formatUnits, type Address } from "viem";
 import {
   FingersMeABI, FingersTokenABI, FingersWinnerNFTABI, FingersLoserNFTABI,
-  FingersNFTStakingABI, FingersClaimABI, FingersStakingABI, FingersZapABI,
+  FingersNFTStakingABI, FingersClaimABI, FingersStakingABI, FingersZapABI, FingersLPMigratorABI,
 } from "../abi";
 
 // ── Deployed addresses ──────────────────────────────────────────────────────
@@ -22,18 +22,18 @@ const env = (k: string, fallback: Address): Address => {
 export const addresses = {
   // Payment / quote token = NVDA (NVIDIA • Robinhood RWA). Key kept as `usdg` (the quote slot).
   usdg:          env("VITE_ADDR_USDG",          "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC"),
-  game:          env("VITE_ADDR_GAME",          "0xaa56e7c3DFA0aFD4BcE07B8F199D407B9B2773e7"),
-  token:         env("VITE_ADDR_TOKEN",         "0x373e9aF0d31EaB9e7A461c736Cc9314f4C05FbBf"),
-  winnerNFT:     env("VITE_ADDR_WINNER",        "0x11784c7925b8F01B507DD6f6cefb8Eaf162a5c27"),
-  loserNFT:      env("VITE_ADDR_LOSER",         "0xada2AcC79F15Aa23766Fa7832dF65E3d1F256874"),
-  nftStaking:    env("VITE_ADDR_NFTSTAKING",    "0xF0638115CEade6eF789b9925039e0342275eed9F"),
+  game:          env("VITE_ADDR_GAME",          "0xA4a24B8F6CD2b3E3c47FA61BAFa20ef9d0aAB4a4"),
+  token:         env("VITE_ADDR_TOKEN",         "0x9647bC7E91DCb14D4d641385847674c8d0058da2"),
+  winnerNFT:     env("VITE_ADDR_WINNER",        "0xdAdae0bAeB093A6D5AfAff39b708fd0C540230d9"),
+  loserNFT:      env("VITE_ADDR_LOSER",         "0x18E4aFd848Cc33f898A5f02B1741338ecc785dF4"),
+  nftStaking:    env("VITE_ADDR_NFTSTAKING",    "0x5b1d0C2F7c39f3d3E5211bE6E751A83194f20903"),
   claim:         env("VITE_ADDR_CLAIM",         Z),
-  fingersStaking:env("VITE_ADDR_FSTAKING",      "0xfDb7E5C5ed42b279860bb0cFaDe0102F4637C003"),
+  fingersStaking:env("VITE_ADDR_FSTAKING",      "0x1f49c1Dd8d2E92A75828355757567ed544C607b0"),
   zap:           env("VITE_ADDR_ZAP",           Z),
-  // Owner tooling / manual-LP peripherals (not user-facing swaps)
-  hook:          env("VITE_ADDR_HOOK",          "0x9c97C060f6bd4F49aeD662825bBc86Bbd850c044"),
-  migrator:      env("VITE_ADDR_MIGRATOR",      "0xC803a6C3c8ca7fE8867aC16A83a4f49ce5A142Af"),
-  seeder:        env("VITE_ADDR_SEEDER",        "0x908803b8344874863cdB0D4273A70a7808f0054c"),
+  // Auto-LP + owner tooling
+  hook:          env("VITE_ADDR_HOOK",          "0xcE7BD302c421E7DF0Ea64d5276AB0559a5b2c044"),
+  migrator:      env("VITE_ADDR_MIGRATOR",      "0x6C15C31f3817CDf7Aa3445C2c0c00d35b3968fD3"),
+  seeder:        env("VITE_ADDR_SEEDER",        "0x20AAa1438B7A2685e707F99185287938A17b6986"),
 } as const;
 
 export const isDeployed = (a: Address) => a !== Z;
@@ -66,6 +66,7 @@ export const abi = {
   claim: FingersClaimABI,
   fingersStaking: FingersStakingABI,
   zap: FingersZapABI,
+  migrator: FingersLPMigratorABI,
 } as const;
 
 // Standard ERC20 read/approve fragment for USDG.

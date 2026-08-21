@@ -62,7 +62,7 @@ export function HowPanel() {
         <h2>💸 Where every play goes</h2>
         <p className="sub">Each play's NVDA is routed by outcome into separate on-chain buckets — the split can't be dodged or quietly redirected.</p>
         <div className="mflow">
-          <div className="mrow"><span className="tag2 t-win">WIN · 40%</span><span className="arrow">→</span><p>Your 0.005 NVDA is <b>retained by the game</b> to seed locked $FINGERS liquidity. You also mint a Winner NFT worth staking.</p></div>
+          <div className="mrow"><span className="tag2 t-win">WIN · 40%</span><span className="arrow">→</span><p>Your 0.005 NVDA is <b>auto-flushed into a permanently-locked LP pool</b> (paired with 50M $FINGERS). The team never touches wins. You also mint a Winner NFT worth staking.</p></div>
           <div className="mrow"><span className="tag2 t-lose">LOSE · 25%</span><span className="arrow">→</span><p><b>NFT stakers</b> — a live NVDA reward stream to everyone staking Winner NFTs. Losses literally pay the holders.</p></div>
           <div className="mrow"><span className="tag2 t-lose">LOSE · 75%</span><span className="arrow">→</span><p><b>Treasury sink</b> — an immutable address wired at launch; the owner can never redirect it.</p></div>
           <div className="mrow"><span className="tag2 t-house">SELL-BACK</span><span className="arrow">→</span><p>Won but changed your mind? <b>Burn a Winner for a 75% refund</b> (25% loss). The house keeps the 25%.</p></div>
@@ -104,7 +104,8 @@ export function HowPanel() {
           <li><b>Hard cap 1,000,000 Winners.</b> Past the cap, wins settle as losses. Supply of $FINGERS is fixed at 100M.</li>
           <li><b>No guaranteed-winner button.</b> Even free plays (giveaways / owner) are the same 40% gamble.</li>
           <li><b>Stake to earn.</b> The 50M $FINGERS is emitted to stakers over 90 days — not a fixed airdrop; unstaked emission goes to LP.</li>
-          <li><b>Community-gated treasury.</b> The team <b>cannot</b> unilaterally drain the pooled NVDA — moving it needs an on-chain proposal that <b>50% of Winner NFTs vote to approve.</b> The earned house margin (retained wins + sink) is separate.</li>
+          <li><b>Team custodies nothing.</b> Wins auto-flow into <b>permanently-locked LP</b>; the 50M $FINGERS is emitted to stakers; the team's only take is the 75%-of-losses sink. The 50M LP allocation is held by an immutable migrator, not a team wallet.</li>
+          <li><b>Community-gated treasury.</b> The team <b>cannot</b> unilaterally drain the pooled NVDA — moving it needs an on-chain proposal that <b>50% of Winner NFTs vote to approve.</b></li>
         </ul>
         <div className="warn-box"><b>Not independently audited.</b> Written defensively, unit + live-fork tested (38/38) and verified on-chain — but a professional audit is still pending, and ownership moves to a multisig before launch. Play with what you can afford to lose. Nothing here is financial advice.</div>
       </div>

@@ -118,8 +118,9 @@ describe("FingersMe — game economics", function () {
     expect(sink).to.be.ok;
   });
 
-  it("flushes sink + staker buckets and withdraws WIN usdg to lpTreasury only", async () => {
-    const { game, usdg, alice, sink, staking, deployer } = await deployFixture();
+  it("flushes sink + staker buckets and flushes WIN NVDA to the LP migrator (not the team)", async () => {
+    const { game, usdg, alice, sink, staking, carol } = await deployFixture();
+    await game.setLpMigrator(carol.address); // stand-in migrator
     const { wins, losses } = await commitAndClassify(game, alice, 24);
     await mine(2);
     for (const id of [...wins, ...losses]) await game.reveal(id);
@@ -130,8 +131,8 @@ describe("FingersMe — game economics", function () {
 
     await expect(game.flushToSink()).to.changeTokenBalance(usdg, sink, sinkAcc);
     await expect(game.flushToStaking()).to.changeTokenBalance(usdg, staking, stakerAcc);
-    // WIN money withdrawn to lpTreasury (default deployer); cannot exceed the WIN bucket.
-    await expect(game.withdrawWinUsdg()).to.changeTokenBalance(usdg, deployer, winUsdg);
+    // WIN money is PERMISSIONLESSLY flushed to the migrator (locked LP) — never to the team.
+    await expect(game.connect(alice).flushToLp()).to.changeTokenBalance(usdg, carol, winUsdg);
 
     // buckets now zeroed
     expect(await game.sinkAccrued()).to.equal(0);
@@ -422,17 +423,19 @@ describe("FingersNFTStaking — $FINGERS 90-day emission", function () {
     if (!aTokens.length || !bTokens.length) return;
     const stAddr = await staking.getAddress(), tkAddr = await token.getAddress();
 
-    // cannot start underfunded
-    await expect(staking.startFingersEmission(tkAddr, DUR)).to.be.revertedWith("underfunded");
+    // cannot configure underfunded
+    await expect(staking.configureEmission(tkAddr, DUR)).to.be.revertedWith("underfunded");
     await token.transfer(stAddr, EMISSION);
-    // non-admin cannot start
-    await expect(staking.connect(alice).startFingersEmission(tkAddr, DUR)).to.be.revertedWith("not admin");
-    await staking.startFingersEmission(tkAddr, DUR);
-    await expect(staking.startFingersEmission(tkAddr, DUR)).to.be.revertedWith("already started");
+    // non-admin cannot configure
+    await expect(staking.connect(alice).configureEmission(tkAddr, DUR)).to.be.revertedWith("not admin");
+    await staking.configureEmission(tkAddr, DUR);
+    await expect(staking.configureEmission(tkAddr, DUR)).to.be.revertedWith("configured");
+    expect(await staking.fingersRate()).to.equal(0n); // not started until first stake
 
     await winner.connect(alice).setApprovalForAll(stAddr, true);
     await winner.connect(bob).setApprovalForAll(stAddr, true);
-    await staking.connect(alice).stake(aTokens);
+    await staking.connect(alice).stake(aTokens); // ← auto-starts the emission
+    expect(await staking.fingersRate()).to.be.greaterThan(0n);
     await ethers.provider.send("evm_increaseTime", [10 * 24 * 60 * 60]); // 10 days, alice alone
     await ethers.provider.send("evm_mine", []);
     const aSolo = await staking.pendingFingers(alice.address);
@@ -457,7 +460,8 @@ describe("FingersNFTStaking — $FINGERS 90-day emission", function () {
     const { staking, token, alice, EMISSION, DUR } = await setupEmission();
     const stAddr = await staking.getAddress(), tkAddr = await token.getAddress();
     await token.transfer(stAddr, EMISSION);
-    await staking.startFingersEmission(tkAddr, DUR);
+    await staking.configureEmission(tkAddr, DUR);
+    await staking.startFingersEmission(); // admin fallback start (nobody will stake)
     // nobody stakes the whole window
     await ethers.provider.send("evm_increaseTime", [DUR + 100]);
     await ethers.provider.send("evm_mine", []);
@@ -466,6 +470,28 @@ describe("FingersNFTStaking — $FINGERS 90-day emission", function () {
     // admin sweeps ~all 50M (nobody earned) to LP
     const lp = alice.address;
     await expect(staking.sweepFingersLeftover(lp)).to.changeTokenBalance(token, alice, EMISSION);
+  });
+});
+
+describe("FingersLPMigrator — auto-LP config + guards", function () {
+  it("configures once and gates graduateAuto on config + a settled game", async () => {
+    const { game, token, usdg, deployer } = await deployFixture();
+    // dummy pool manager (guards revert before any v4 call is reached)
+    const mig = await (await ethers.getContractFactory("FingersLPMigrator")).deploy(deployer.address);
+    const tk = await token.getAddress(), q = await usdg.getAddress(), g = await game.getAddress();
+
+    await expect(mig.graduateAuto()).to.be.revertedWith("not configured");
+    // non-admin cannot configure
+    const [, other] = await ethers.getSigners();
+    await expect(mig.connect(other).configureAuto(tk, q, g, 10000, 200, ethers.ZeroAddress)).to.be.revertedWith("not admin");
+    await mig.configureAuto(tk, q, g, 10000, 200, ethers.ZeroAddress);
+    await expect(mig.configureAuto(tk, q, g, 10000, 200, ethers.ZeroAddress)).to.be.revertedWith("configured");
+    // game is OPEN → not settled → graduateAuto blocked
+    await expect(mig.graduateAuto()).to.be.revertedWith("raise not settled");
+    // finalize + settle (no commits) → settled, but empty balances → "empty" (still no v4 call)
+    await game.finalize();
+    expect(await game.isSettled()).to.equal(true);
+    await expect(mig.graduateAuto()).to.be.revertedWith("empty");
   });
 });
 

@@ -18,6 +18,8 @@ import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {FullMath} from "@uniswap/v4-core/src/libraries/FullMath.sol";
 import {LiquidityAmounts} from "@uniswap/v4-periphery/src/libraries/LiquidityAmounts.sol";
 
+interface ISettledGame { function isSettled() external view returns (bool); }
+
 /**
  * @title FingersLPMigrator
  * @notice Creates a Uniswap v4 pool (FINGERS / quote-asset) on Robinhood and adds
@@ -41,6 +43,22 @@ contract FingersLPMigrator is IUnlockCallback {
 
     IPoolManager public immutable poolManager;
 
+    // ── Auto-LP config (set once by the deployer; then graduation is permissionless) ──
+    // Wins accrue as NVDA and are flushed here; the 50M $FINGERS LP allocation is funded here at
+    // deploy. Once the game is settled ANYONE can call graduateAuto() to pair the FULL balances into
+    // a permanently-locked pool. The team never custodies or withdraws it — the only exit is arbitrage.
+    address public admin;            // may configure once; no funds power
+    address public autoToken;        // $FINGERS
+    address public autoQuote;        // NVDA (payment token)
+    address public autoHooks;        // FingersHook
+    address public autoGame;         // FingersMe (read isSettled)
+    uint24  public autoFee;
+    int24   public autoTickSpacing;
+    bool    public graduated;        // one-shot
+
+    event AutoConfigured(address token, address quote, address game, uint24 fee, int24 tickSpacing, address hooks);
+    event Graduated(uint160 sqrtPriceX96, uint128 liquidity, uint256 amountToken, uint256 amountQuote);
+
     event Migrated(
         address indexed token,
         address indexed quote,
@@ -53,6 +71,38 @@ contract FingersLPMigrator is IUnlockCallback {
     constructor(address _poolManager) {
         require(_poolManager != address(0), "pm");
         poolManager = IPoolManager(_poolManager);
+        admin = msg.sender;
+    }
+
+    /// @notice Wire the auto-LP once (deployer). After this, graduation needs no privileged caller.
+    function configureAuto(
+        address token, address quote, address game,
+        uint24 fee, int24 tickSpacing, address hooks
+    ) external {
+        require(msg.sender == admin, "not admin");
+        require(autoToken == address(0), "configured");
+        require(token != address(0) && quote != address(0) && game != address(0), "zero");
+        autoToken = token; autoQuote = quote; autoGame = game;
+        autoFee = fee; autoTickSpacing = tickSpacing; autoHooks = hooks;
+        emit AutoConfigured(token, quote, game, fee, tickSpacing, hooks);
+    }
+
+    /// @notice PERMISSIONLESS graduation: once the game reports settled, pair the FULL $FINGERS +
+    ///         NVDA balances this contract holds into a permanently-locked pool. One-shot. Anyone can
+    ///         fire it — the team can never pull the liquidity (no withdraw path exists).
+    function graduateAuto() external returns (uint160 sqrtPriceX96, uint128 liquidity) {
+        require(autoToken != address(0), "not configured");
+        require(!graduated, "graduated");
+        require(ISettledGame(autoGame).isSettled(), "raise not settled");
+        uint256 amtToken = IERC20(autoToken).balanceOf(address(this));
+        uint256 amtQuote = IERC20(autoQuote).balanceOf(address(this));
+        require(amtToken > 0 && amtQuote > 0, "empty");
+        graduated = true;
+        (sqrtPriceX96, liquidity) = _graduate(GraduateParams({
+            token: autoToken, quote: autoQuote, fee: autoFee, tickSpacing: autoTickSpacing,
+            amountToken: amtToken, amountQuote: amtQuote, hooks: autoHooks
+        }));
+        emit Graduated(sqrtPriceX96, liquidity, amtToken, amtQuote);
     }
 
     struct GraduateParams {
@@ -74,8 +124,12 @@ contract FingersLPMigrator is IUnlockCallback {
         uint256 amount1;
     }
 
-    /// @notice Create the v4 pool and add locked full-range liquidity.
+    /// @notice Create the v4 pool and add locked full-range liquidity (manual/basket path).
     function graduate(GraduateParams calldata p) external returns (uint160 sqrtPriceX96, uint128 liquidity) {
+        return _graduate(p);
+    }
+
+    function _graduate(GraduateParams memory p) internal returns (uint160 sqrtPriceX96, uint128 liquidity) {
         (Currency c0, Currency c1, uint256 amount0, uint256 amount1) = p.token < p.quote
             ? (Currency.wrap(p.token), Currency.wrap(p.quote), p.amountToken, p.amountQuote)
             : (Currency.wrap(p.quote), Currency.wrap(p.token), p.amountQuote, p.amountToken);

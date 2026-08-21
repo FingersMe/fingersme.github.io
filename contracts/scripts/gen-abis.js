@@ -12,6 +12,7 @@ const MAP = {
   FingersStakingABI: "FingersStaking",
   FingersZapABI: "FingersZap",
   FingersHookABI: "FingersHook",
+  FingersLPMigratorABI: "FingersLPMigrator",
 };
 
 const root = path.join(__dirname, "..");

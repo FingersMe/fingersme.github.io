@@ -28,7 +28,7 @@ export function GalleryPanel() {
 function Collection({ art, title, emoji, tone, count, loading, blurb }: {
   art: string; title: string; emoji: string; tone: "win" | "lose"; count?: bigint; loading?: boolean; blurb: string;
 }) {
-  const ring = tone === "win" ? "rgba(176,245,0,.5)" : "rgba(255,46,139,.5)";
+  const ring = tone === "win" ? "rgba(47,230,160,.5)" : "rgba(234,75,91,.5)";
   return (
     <motion.div className="card glow" whileHover={{ y: -3 }} transition={{ type: "spring", stiffness: 300 }}>
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>

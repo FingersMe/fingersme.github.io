@@ -88,8 +88,9 @@ contract FingersMe is ReentrancyGuard, Ownable {
     uint256 public deadline;    // unix ts after which new commits are blocked
 
     // ── Mutable wiring (owner) ───────────────────────────────
-    address public lpTreasury;   // where retained WIN USDG is withdrawn (default: owner)
+    address public lpTreasury;   // legacy; unused in the auto-LP model (wins go to the migrator, not the team)
     address public nftStaking;   // NFT-staking contract receiving the 25% loss stream (set once)
+    address public lpMigrator;   // auto-LP migrator receiving WIN-NVDA (perma-locked pool; set once)
 
     // ── Commit-reveal state ──────────────────────────────────
     struct Commit {
@@ -162,6 +163,8 @@ contract FingersMe is ReentrancyGuard, Ownable {
     event DeadlineExtended(uint256 newDeadline);
     event LpTreasurySet(address indexed treasury);
     event NftStakingSet(address indexed staking);
+    event LpMigratorSet(address indexed migrator);
+    event LpFlushed(address indexed migrator, uint256 amount);
     event SinkFlushed(address indexed sink, uint256 amount);
     event StakerFlushed(address indexed staking, uint256 amount);
     event WinUsdgWithdrawn(address indexed treasury, uint256 amount);
@@ -407,15 +410,18 @@ contract FingersMe is ReentrancyGuard, Ownable {
         emit StakerFlushed(staking, amount);
     }
 
-    /// @notice Withdraw the retained WIN USDG to `lpTreasury` (for manual LP seeding).
-    ///         Touches only the WIN bucket — sink/staker earmarks are never withdrawable here.
-    function withdrawWinUsdg() external onlyOwner nonReentrant returns (uint256 amount) {
+    /// @notice Flush the accrued WIN-NVDA to the LP migrator (for the permanently-locked pool).
+    ///         PERMISSIONLESS — the team can NOT withdraw wins; they can only ever become locked LP.
+    ///         Touches only the WIN bucket; sink/staker earmarks are untouched.
+    function flushToLp() external nonReentrant returns (uint256 amount) {
+        address mig = lpMigrator;
+        require(mig != address(0), "migrator unset");
         amount = winUsdgRetained;
         require(amount > 0, "nothing");
         winUsdgRetained = 0;
         winWithdrawn += amount;
-        usdg.safeTransfer(lpTreasury, amount);
-        emit WinUsdgWithdrawn(lpTreasury, amount);
+        usdg.safeTransfer(mig, amount);
+        emit LpFlushed(mig, amount);
     }
 
     /// @notice Sell a WINNER NFT back to the house for a 75% refund (a 25% loss to the seller).
@@ -484,6 +490,14 @@ contract FingersMe is ReentrancyGuard, Ownable {
         require(staking != address(0), "zero");
         nftStaking = staking;
         emit NftStakingSet(staking);
+    }
+
+    /// @notice Bind the auto-LP migrator exactly once (receives WIN-NVDA for the locked pool).
+    function setLpMigrator(address migrator) external onlyOwner {
+        require(lpMigrator == address(0), "already set");
+        require(migrator != address(0), "zero");
+        lpMigrator = migrator;
+        emit LpMigratorSet(migrator);
     }
 
     /// @notice FINALIZE / bond the raise — stop accepting new commits. Callable by the owner at ANY

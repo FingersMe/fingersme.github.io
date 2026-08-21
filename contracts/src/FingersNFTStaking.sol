@@ -64,6 +64,7 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
     uint256 public constant FINGERS_EMISSION = 50_000_000e18;
     address public immutable emissionAdmin;          // may only start emission / sweep leftovers — never touches NFTs or USDG
     IERC20 public fingers;                            // the emission token ($FINGERS)
+    uint256 public emissionDuration;                  // configured window length (0 until configured)
     uint256 public fingersRate;                       // $FINGERS per second (0 until started)
     uint256 public fingersEnd;                        // timestamp emission stops
     uint256 public fingersLastAt;                     // last accrual time
@@ -135,6 +136,7 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
     function stake(uint256[] calldata tokenIds) external nonReentrant {
         uint256 len = tokenIds.length;
         require(len > 0, "empty");
+        _startEmission();              // first stake auto-starts the 90-day $FINGERS emission
         _harvestAll(msg.sender);       // pay out USDG at the pre-stake share level
         _harvestFingers(msg.sender);   // pay out $FINGERS emission at the pre-stake share level
 
@@ -208,19 +210,32 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
 
     // ── $FINGERS emission ────────────────────────────────────
 
-    /// @notice Start the 50M $FINGERS emission over `duration` seconds. Call once, AFTER the raise is
-    ///         finalized and this contract has been funded with the full 50M. Team-admin only.
-    function startFingersEmission(address _fingers, uint256 duration) external {
+    /// @notice Configure the 50M $FINGERS emission window (admin, once, requires the 50M already funded).
+    ///         This does NOT start the clock — emission auto-starts on the FIRST stake, so there is no
+    ///         manual launch step. (An admin fallback `startFingersEmission()` exists in case nobody stakes.)
+    function configureEmission(address _fingers, uint256 duration) external {
         require(msg.sender == emissionAdmin, "not admin");
-        require(fingersRate == 0, "already started");
+        require(emissionDuration == 0, "configured");
         require(_fingers != address(0), "zero token");
         require(duration >= 1 days && duration <= 365 days, "bad duration");
         require(IERC20(_fingers).balanceOf(address(this)) >= FINGERS_EMISSION, "underfunded");
         fingers = IERC20(_fingers);
-        fingersRate = FINGERS_EMISSION / duration; // any dust from integer division stays sweepable
-        fingersEnd = block.timestamp + duration;
+        emissionDuration = duration;
+    }
+
+    /// @notice Admin fallback to start the configured emission manually (e.g. if nobody has staked yet).
+    function startFingersEmission() external {
+        require(msg.sender == emissionAdmin, "not admin");
+        _startEmission();
+    }
+
+    /// @dev Begin the emission clock (idempotent). Fires automatically on the first stake.
+    function _startEmission() private {
+        if (fingersRate != 0 || emissionDuration == 0) return;
+        fingersRate = FINGERS_EMISSION / emissionDuration; // integer-division dust stays sweepable
+        fingersEnd = block.timestamp + emissionDuration;
         fingersLastAt = block.timestamp;
-        emit FingersEmissionStarted(_fingers, fingersRate, fingersEnd);
+        emit FingersEmissionStarted(address(fingers), fingersRate, fingersEnd);
     }
 
     /// @notice After the emission window ends, sweep to `to` (team LP reserve) ONLY the $FINGERS that

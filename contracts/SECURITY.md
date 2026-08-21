@@ -123,6 +123,24 @@
   staked NFT or seize a staker's rewards (custody-safety preserved). *Tested: admin/once/underfunded guards,
   streaming + dilution + claim payout, recognized ≤ 50M cap, full no-staker sweep after end.*
 
+### New in v5 (reviewed 2026-08-21): trustless auto-tokenomics (wins→locked LP, auto-emission)
+- **Wins → permanently-locked LP, NOT the team.** WIN-NVDA accrues in the game and is flushed by the
+  PERMISSIONLESS `flushToLp()` to the immutable `FingersLPMigrator` (no more owner `withdrawWinUsdg`).
+  The 50M LP $FINGERS is funded into the migrator at deploy (team wallet keeps 0). Once the game reports
+  `isSettled()`, the PERMISSIONLESS `migrator.graduateAuto()` pairs the FULL FINGERS+NVDA balances into a
+  **perma-locked FINGERS/NVDA v4 pool** (the migrator has no withdraw/collect/decrease path — rug-proof).
+  One-shot (`graduated` flag). `configureAuto` is admin-once. Grief-proof init inherited. Launch price =
+  50M FINGERS : total WIN-NVDA raised. *Tested: config once/admin-gate, graduateAuto gated on
+  configured + settled + non-empty; flushToLp needs a migrator and moves only the WIN bucket.*
+- **Emission auto-starts on first stake.** `configureEmission(token,dur)` (admin-once, requires funded)
+  stores the 90-day window without starting; the first `stake()` fires `_startEmission()` — no manual
+  step. `startFingersEmission()` (no-arg) is an admin fallback if nobody stakes. *Tested: configure
+  guards, fingersRate 0 until first stake then >0, dilution + claim payout unchanged.*
+- Sell-back still debits the WIN bucket (works pre-graduation; after the wins are flushed to LP the
+  refund reserve is empty → sell-back reverts, which is correct — value is now locked liquidity).
+- Team's only revenue = the immutable 75%-of-losses sink. Everything else (wins, LP, emission) is
+  automated and non-custodial. This is the maximally-trustless configuration of the system.
+
 ## Residual risks (documented, must be addressed operationally)
 1. **v4 swap-path fork tests — DONE (pass on the live Robinhood v4 PoolManager).** Hook fee-take/
    settle + burn + reflexive buyback, zap asset→USDG swap + commit, basket auto-seed
@@ -140,7 +158,7 @@
 6. **Independent audit** — REQUIRED before real funds.
 
 ## Test status
-**38/38 tests green — 34 unit + 4 live Robinhood-v4 fork** (v3 added 3: rounds/countdown/finalize; v2 added 3: free-credits,
+**39/39 tests green — 35 unit + 4 live Robinhood-v4 fork** (v3 added 3: rounds/countdown/finalize; v2 added 3: free-credits,
 sell-back, vote-gated emergency). `scripts/simulate.js` reconciles every USDG bucket end-to-end and
 projects to the 1,000,000-winner scale. Compiles clean (viaIR, cancun).
 

@@ -129,14 +129,15 @@ async function main() {
   await (await game.setNftStaking(await nftStaking.getAddress())).wait();
   console.log("  nftStaking: ", await nftStaking.getAddress());
 
-  // ── $FINGERS token (100M): mint all to deployer, then FUND the NFT-staking contract with the 50M
-  //    emission pool. Stakers EARN it over 90 days (started after finalize via startFingersEmission). ──
+  // ── $FINGERS token (100M): mint all to deployer, then fund BOTH automated pools — the team keeps
+  //    NONE. 50M → NFT-staking emission (earned by stakers over 90d, auto-starts on first stake);
+  //    50M → LP migrator (auto-LP: paired with WIN-NVDA into a perma-locked pool, permissionless). ──
   const token = await (await ethers.getContractFactory("FingersToken")).deploy(deployer.address, deployer.address);
   await token.waitForDeployment();
   const EMISSION = await token.CLAIM_ALLOCATION(); // 50M — the staking-emission pool
+  const LP_ALLOC = await token.LP_ALLOCATION();    // 50M — the auto-LP pool
   await (await token.transfer(await nftStaking.getAddress(), EMISSION)).wait();
-  console.log("  token:      ", await token.getAddress(), "(50M LP kept by deployer, 50M -> NFT-staking emission pool)");
-  console.log("  emission:    50M $FINGERS funded to nftStaking; call startFingersEmission(token, 90d) AFTER finalize");
+  console.log("  token:      ", await token.getAddress(), "(50M -> emission pool, 50M -> auto-LP; team keeps 0)");
 
   // ── $FINGERS staking (boosted by staked NFTs) ──
   const fingersStaking = await (await ethers.getContractFactory("FingersStaking")).deploy(await token.getAddress(), await nftStaking.getAddress());
@@ -155,8 +156,18 @@ async function main() {
   await migrator.waitForDeployment();
   const seeder = await (await ethers.getContractFactory("FingersBasketSeeder")).deploy(POOL_MANAGER, deployer.address);
   await seeder.waitForDeployment();
-  console.log("  migrator:   ", await migrator.getAddress(), "(perma-lock; use for manual locked LP)");
+  console.log("  migrator:   ", await migrator.getAddress(), "(perma-lock; AUTO-LP wired)");
   console.log("  seeder:     ", await seeder.getAddress(), "(OPTIONAL/auto — UNwired; registrar stays deployer)");
+
+  // ── Wire the automated tokenomics (team custodies nothing) ──
+  await (await token.transfer(await migrator.getAddress(), LP_ALLOC)).wait();          // 50M FINGERS → auto-LP pool
+  await (await game.setLpMigrator(await migrator.getAddress())).wait();                // wins flush here, never to team
+  await (await migrator.configureAuto(
+    await token.getAddress(), USDG, await game.getAddress(), V4_FEE, V4_TICK_SPACING, hookAddr
+  )).wait();
+  await (await nftStaking.configureEmission(await token.getAddress(), 7776000)).wait(); // 90-day emission, auto-starts on first stake
+  console.log("  auto-LP:     50M FINGERS in migrator; wins→flushToLp→graduateAuto (perma-locked) after settle");
+  console.log("  emission:    50M FINGERS configured (90d); AUTO-STARTS on the first NFT stake");
 
   const out = {
     chainId: Number(net.chainId),
@@ -181,14 +192,15 @@ async function main() {
   console.log("\n✅ Deployed. Summary saved →", file);
   console.log(JSON.stringify(out, null, 2));
 
-  console.log("\nFINALIZE / LP CHECKLIST (post raise):");
-  console.log("  1) game.finalize(); settle every commit (reveal/forfeit) until game.isSettled()");
-  console.log("  2) nftStaking.startFingersEmission(token, 7776000)  → begin the 90-day 50M $FINGERS emission to stakers");
-  console.log("  3) game.flushToSink()  (75% losses → sink)  &  game.flushToStaking()  (25% → NFT stakers)");
-  console.log("  4) game.withdrawWinUsdg()  → pull the retained WIN NVDA to your LP wallet");
-  console.log("  5) build FINGERS/asset locked pools by hand (via migrator.graduate with hooks=hook),");
-  console.log("     then hook.registerPool(key, cfg) on each to switch on the 1% fee engine.");
-  console.log("  6) after 90 days: nftStaking.sweepFingersLeftover(lpWallet)  → reclaim un-staked emission for LP.");
+  console.log("\nAUTOMATED FLOW (team custodies nothing):");
+  console.log("  • Emission: AUTO-STARTS on the first NFT stake — no manual step.");
+  console.log("  • Wins:     accrue as WIN-NVDA; anyone calls game.flushToLp() → migrator.");
+  console.log("  POST-RAISE (all permissionless except finalize):");
+  console.log("  1) game.finalize(); settle every commit until game.isSettled()");
+  console.log("  2) game.flushToLp()  (WIN-NVDA → migrator)  &  game.flushToSink()  &  game.flushToStaking()");
+  console.log("  3) migrator.graduateAuto()  → pairs 50M FINGERS + all WIN-NVDA into a PERMA-LOCKED pool (anyone)");
+  console.log("  4) hook.registerPool(key, cfg)  → switch on the 1% buyback/burn/staker fee engine");
+  console.log("  5) after 90 days: nftStaking.sweepFingersLeftover(lpWallet)  → reclaim un-staked emission.");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

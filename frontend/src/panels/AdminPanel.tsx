@@ -154,10 +154,10 @@ export function AdminPanel() {
         <div className="hint" style={{ marginTop: 6 }}>Snapshot only if a commit's block is about to age past the 256-block window before its owner reveals.</div>
       </div>
 
-      {/* Settlement flows */}
+      {/* Settlement + auto-LP */}
       <div className="card glow">
-        <h2>💸 Settlement & payouts</h2>
-        <p className="sub">After every play is settled: push loss splits to their pools, then pull the retained WIN NVDA to your LP wallet.</p>
+        <h2>💸 Settlement & auto-LP</h2>
+        <p className="sub">All permissionless. Push the loss splits, flush WIN-NVDA to the migrator, then <b>graduate</b> — pairs 50M $FINGERS + all WIN-NVDA into a <b>permanently-locked pool</b>. The team never withdraws wins.</p>
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           <button className="btn" disabled={!!busy} onClick={() => run("staking", addresses.game, abi.game, "flushToStaking", [], "25% flushed to NFT stakers")}>
             {busy === "staking" ? "…" : `🥩 Flush → stakers (${usdg(stakerAccrued)})`}
@@ -165,23 +165,31 @@ export function AdminPanel() {
           <button className="btn" disabled={!!busy} onClick={() => run("sink", addresses.game, abi.game, "flushToSink", [], "75% flushed to sink")}>
             {busy === "sink" ? "…" : `🕳️ Flush → sink (${usdg(sinkAccrued)})`}
           </button>
-          <button className="btn" disabled={!!busy} onClick={() => run("withdraw", addresses.game, abi.game, "withdrawWinUsdg", [], "WIN NVDA withdrawn to LP wallet")}>
-            {busy === "withdraw" ? "…" : `🏦 Withdraw WIN NVDA (${usdg(winRetained)})`}
+          <button className="btn" disabled={!!busy} onClick={() => run("lp", addresses.game, abi.game, "flushToLp", [], "WIN-NVDA flushed to LP migrator")}>
+            {busy === "lp" ? "…" : `🏦 Flush WIN → LP (${usdg(winRetained)})`}
           </button>
+        </div>
+        <div className="row" style={{ gap: 10, marginTop: 10 }}>
+          <button className="btn gold" disabled={!!busy || !settled || !isDeployed(addresses.migrator)} onClick={() => {
+            if (!confirm("Graduate now? Creates the PERMANENTLY-LOCKED FINGERS/NVDA pool from the funded balances. One-shot, irreversible.")) return;
+            run("grad", addresses.migrator, abi.migrator, "graduateAuto", [], "Graduated — locked LP created 🎉");
+          }}>
+            {busy === "grad" ? "Graduating…" : "🚀 Graduate → create locked LP"}
+          </button>
+          <span className="hint" style={{ margin: 0 }}>Enabled once the raise is <b>settled</b>. Then <span className="mono">hook.registerPool</span> to switch on the 1% fee.</span>
         </div>
       </div>
 
       {/* $FINGERS emission control */}
       <div className="card glow">
         <h2>🎁 $FINGERS emission (90-day stake rewards)</h2>
-        <p className="sub">The 50M $FINGERS pool is funded into the NFT-staking contract at deploy. <b>After you finalize the raise</b>, start the 90-day emission — stakers then earn it, split by NFT count. After it ends, sweep the un-staked leftover to your LP wallet.</p>
+        <p className="sub">50M $FINGERS is funded into the staking contract at deploy and <b>auto-starts on the first NFT stake</b> — no manual step. The button below is only a <b>fallback</b> if nobody has staked. After 90 days, sweep the un-staked leftover to LP.</p>
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <button className="btn gold" disabled={!!busy || fingersRate > 0n} onClick={() => {
-            if (!settled) { toast.error("Finalize + settle the raise first."); return; }
-            if (!confirm("Start the 90-day $FINGERS emission now? This begins streaming 50M to stakers.")) return;
-            run("emit", addresses.nftStaking, abi.nftStaking, "startFingersEmission", [addresses.token, 7776000n], "Emission started 🎉");
+          <button className="btn" disabled={!!busy || fingersRate > 0n} onClick={() => {
+            if (!confirm("Force-start the 90-day $FINGERS emission now (fallback)?")) return;
+            run("emit", addresses.nftStaking, abi.nftStaking, "startFingersEmission", [], "Emission started 🎉");
           }}>
-            {busy === "emit" ? "Starting…" : fingersRate > 0n ? "✅ Emission live" : "🚀 Start 90-day emission"}
+            {busy === "emit" ? "Starting…" : fingersRate > 0n ? "✅ Emission live (auto)" : "▶️ Force-start (fallback)"}
           </button>
           <div className="row" style={{ gap: 8, flex: 1, minWidth: 260 }}>
             <input type="text" placeholder="sweep leftover → LP wallet 0x… (after 90d)" value={dustInput} onChange={(e) => setDustInput(e.target.value)} />
@@ -212,7 +220,7 @@ export function AdminPanel() {
       </div>
 
       {/* Emergency withdrawal (vote-gated) */}
-      <div className="card glow" style={{ borderColor: "rgba(245,166,35,.35)" }}>
+      <div className="card glow" style={{ borderColor: "rgba(22,199,132,.35)" }}>
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
           <h2 style={{ color: "var(--orange)" }}>🚨 Emergency withdrawal (vote-gated)</h2>
           {emg && (emg as any[])[4] && !(emg as any[])[5]
@@ -251,13 +259,14 @@ export function AdminPanel() {
 
       {/* Manual LP checklist */}
       <div className="card glow">
-        <h2>📋 Manual LP checklist (post Round 1)</h2>
+        <h2>📋 Launch checklist (mostly automatic)</h2>
         <ol className="sub" style={{ margin: 0, paddingLeft: 20, lineHeight: 1.9 }}>
-          <li><b>Close Round 1</b> above, then settle every play (players reveal, or you can't force — forfeit expires unrevealed) until <b>Settled? = YES</b>.</li>
-          <li><b>Start the 90-day emission</b> (above) → stakers earn the 50M $FINGERS over time, split by NFT count.</li>
-          <li><b>Flush → stakers</b> (25% losses) and <b>Flush → sink</b> (75%).</li>
-          <li><b>Withdraw WIN NVDA</b> to your LP wallet.</li>
-          <li>Build FINGERS/asset locked pools by hand via <span className="mono">migrator.graduate(hooks=hook)</span>, then <span className="mono">hook.registerPool(key, cfg)</span> on each to switch on the 1% fee engine. <i>(Run from Hardhat — needs PoolKey structs.)</i></li>
+          <li><b>Emission auto-starts</b> the moment the first Winner NFT is staked — nothing to do.</li>
+          <li>When ready, <b>Finalize raise</b> above, then settle every play until <b>Settled? = YES</b>.</li>
+          <li><b>Flush → stakers</b> (25%), <b>Flush → sink</b> (75%), <b>Flush WIN → LP</b> — all permissionless.</li>
+          <li><b>Graduate → create locked LP</b> above (pairs 50M $FINGERS + all WIN-NVDA into a perma-locked pool). Anyone can call it.</li>
+          <li><span className="mono">hook.registerPool(key, cfg)</span> to switch on the 1% buyback/burn/staker fee engine. <i>(Hardhat — needs PoolKey.)</i></li>
+          <li>After 90 days: <b>Sweep leftover</b> (unstaked emission) → LP.</li>
         </ol>
         <div className="statbar" style={{ gridTemplateColumns: "1fr", marginTop: 12 }}>
           <div className="stat"><div className="k">Hook</div><div className="v mono" style={{ fontSize: 12 }}>{isDeployed(addresses.hook) ? addresses.hook : "—"}</div></div>

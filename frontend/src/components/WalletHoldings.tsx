@@ -35,7 +35,7 @@ export function WalletHoldings() {
 function num(v: unknown): string | undefined { return v !== undefined ? (v as bigint).toString() : undefined; }
 
 function Holding({ art, label, value, tone, deployed }: { art: string; label: string; value?: string; tone: "win" | "lose" | "gold"; deployed: boolean }) {
-  const ring = tone === "win" ? "rgba(176,245,0,.4)" : tone === "lose" ? "rgba(255,46,139,.4)" : "rgba(255,201,60,.4)";
+  const ring = tone === "win" ? "rgba(47,230,160,.4)" : tone === "lose" ? "rgba(234,75,91,.4)" : "rgba(22,199,132,.4)";
   return (
     <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 12, display: "flex", gap: 12, alignItems: "center" }}>
       <div style={{ width: 46, height: 46, borderRadius: 10, overflow: "hidden", flex: "0 0 auto", border: `1px solid ${ring}`, boxShadow: `0 0 14px ${ring}` }}>

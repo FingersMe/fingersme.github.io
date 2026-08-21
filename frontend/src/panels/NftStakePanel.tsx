@@ -68,7 +68,7 @@ export function NftStakePanel() {
           <button className="btn alt" disabled={!isConnected || busy || stakedNfts.ids.length === 0} onClick={() => unstake(stakedNfts.ids)}>
             Unstake all ({stakedNfts.ids.length})
           </button>
-          <button className="btn gold-btn" style={{ background: "linear-gradient(135deg,var(--gold),var(--gold-deep))", color: "#2a1c00" }} disabled={!isConnected || busy} onClick={claim}>Claim NVDA</button>
+          <button className="btn gold-btn" style={{ background: "linear-gradient(135deg,var(--gold),var(--gold-deep))", color: "#04150e" }} disabled={!isConnected || busy} onClick={claim}>Claim NVDA</button>
         </div>
         {(owned.error || stakedNfts.error) && (
           <>

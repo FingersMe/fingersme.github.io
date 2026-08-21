@@ -58,10 +58,10 @@ describe("Security — reentrancy + access control", function () {
     await expect(game.setNftStaking(nftStaking.target)).to.be.revertedWith("already set");
   });
 
-  it("withdrawWinUsdg / flushes only move their own bucket; owner-gated withdraw", async () => {
+  it("buckets partition the balance; flushToLp needs a migrator and moves only the WIN bucket", async () => {
     const { game, usdg, alice, deployer } = await deploy(4000);
     const first = await game.connect(alice).commit.staticCall(20);
-    const rc = await (await game.connect(alice).commit(20)).wait();
+    await (await game.connect(alice).commit(20)).wait();
     await mine(2);
     const ids = [];
     for (let i = 0; i < 20; i++) ids.push(first + BigInt(i));
@@ -70,8 +70,8 @@ describe("Security — reentrancy + access control", function () {
     const win = await game.winUsdgRetained();
     const sink = await game.sinkAccrued();
     const staker = await game.stakerAccrued();
-    // non-owner cannot withdraw WIN usdg
-    await expect(game.connect(alice).withdrawWinUsdg()).to.be.reverted;
+    // flushToLp reverts until a migrator is wired (wins can only ever become locked LP, never team funds)
+    await expect(game.flushToLp()).to.be.revertedWith("migrator unset");
     // partition holds
     expect(await usdg.balanceOf(game.target)).to.equal(win + sink + staker);
     expect(deployer).to.be.ok;

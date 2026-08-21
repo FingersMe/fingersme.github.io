@@ -3,6 +3,7 @@ import { useAccount, useReadContract, useWriteContract, usePublicClient } from "
 import { decodeEventLog, formatUnits, maxUint256 } from "viem";
 import toast from "react-hot-toast";
 import { addresses, abi, erc20Abi, isDeployed } from "../lib/contracts";
+import { ResultModal, type Res } from "../components/ResultModal";
 
 type Attempt = { id: bigint; block: bigint };
 type Result = { id: bigint; won: boolean; nftId: bigint };
@@ -18,6 +19,7 @@ export function MintPanel() {
   const [pending, setPending] = useState<Attempt[]>(() => load());
   const [results, setResults] = useState<Result[]>([]);
   const [busy, setBusy] = useState(false);
+  const [modal, setModal] = useState<Res[] | null>(null);
 
   const deployed = isDeployed(addresses.game);
 
@@ -73,15 +75,33 @@ export function MintPanel() {
       }
       setPending((p) => [...p, ...fresh]);
       refetchFree();
-      toast.success(`Committed ${fresh.length} play${fresh.length > 1 ? "s" : ""} — reveal in a moment`);
+      toast.success(`Committed ${fresh.length} play${fresh.length > 1 ? "s" : ""}! Confirm the reveal in your wallet 👀`);
+      // Auto-prompt the reveal so nobody forgets — wait for the reveal window (1 block) then reveal.
+      await autoReveal(fresh);
     } catch (e: any) { toast.error(shortErr(e)); } finally { setBusy(false); }
   }
 
-  async function revealAll() {
-    if (pending.length === 0) return;
+  async function autoReveal(items: Attempt[]) {
+    if (items.length === 0) return;
     try {
-      setBusy(true);
-      const ids = pending.map((p) => p.id);
+      // reveal needs block > commitBlock; wait for the next block to be mined
+      const start = items.reduce((m, a) => (a.block > m ? a.block : m), 0n);
+      for (let i = 0; i < 20; i++) {
+        const bn = await publicClient!.getBlockNumber();
+        if (bn > start) break;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+      await doReveal(items.map((a) => a.id));
+    } catch (e: any) {
+      // user can still reveal manually from the right-hand panel
+      toast(`Reveal when ready → hit "Reveal" on the right.`, { icon: "⏳" });
+    }
+  }
+
+  async function doReveal(ids: bigint[]) {
+    if (ids.length === 0) return;
+    setBusy(true);
+    try {
       const hash = await writeContractAsync({ address: addresses.game, abi: abi.game, functionName: "revealBatch", args: [ids] });
       const rc = await publicClient!.waitForTransactionReceipt({ hash });
       const out: Result[] = [];
@@ -94,19 +114,22 @@ export function MintPanel() {
           }
         } catch { /* skip */ }
       }
+      const done = new Set(ids.map((x) => x.toString()));
       setResults((r) => [...out, ...r]);
-      setPending([]);
-      const wins = out.filter((o) => o.won).length;
-      if (wins > 0) toast.success(`🎉 ${wins} WIN${wins > 1 ? "S" : ""}! You minted Winner NFT${wins > 1 ? "s" : ""}.`);
-      else toast("🖕 No luck this time — badges of shame minted.", { icon: "🖕" });
+      setPending((p) => p.filter((x) => !done.has(x.id.toString())));
+      if (out.length) setModal(out); // pop the win/lose reveal
     } catch (e: any) { toast.error(shortErr(e)); } finally { setBusy(false); }
   }
+
+  async function revealAll() { await doReveal(pending.map((p) => p.id)); }
 
   if (!deployed) {
     return <div className="card glow"><div className="notice">Contracts aren't wired to this build yet. Deploy with <span className="mono">scripts/deploy.js</span> and set the <span className="mono">VITE_ADDR_*</span> env vars (or edit <span className="mono">src/lib/contracts.ts</span>).</div></div>;
   }
 
   return (
+    <>
+    <ResultModal results={modal} onClose={() => setModal(null)} />
     <div className="grid two">
       <div className="card glow">
         <h2>Pull the trigger</h2>
@@ -174,6 +197,7 @@ export function MintPanel() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

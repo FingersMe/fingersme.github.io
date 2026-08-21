@@ -249,7 +249,25 @@ body::after {
 /* Emergency / notice pulse a touch richer */
 @keyframes pulse-glow-strong { 0%,100% { box-shadow: 0 0 8px rgba(245,166,35,.35); } 50% { box-shadow: 0 0 26px rgba(245,166,35,.7); } }
 
+/* ── Result modal (won / lose) ── */
+.modal-scrim { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px;
+  background: rgba(4,3,2,.72); backdrop-filter: blur(6px); overflow: hidden; }
+.modal { position: relative; width: min(440px, 94vw); background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  border: 1px solid var(--border); border-radius: 22px; padding: 24px; text-align: center;
+  box-shadow: 0 30px 90px rgba(0,0,0,.7); }
+.modal.win { border-color: rgba(155,232,15,.4); } .modal.lose { border-color: rgba(255,46,139,.4); }
+.modal-art { width: 100%; aspect-ratio: 16/10; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 18px; background: #05010a; }
+.modal-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.modal-title { font-family: "Luckiest Guy", cursive; font-size: 34px; margin: 0 0 8px; letter-spacing: .01em; text-shadow: 0 4px 0 rgba(0,0,0,.3); }
+.modal-sub { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0 0 16px; }
+
+/* confetti burst */
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.confetti > span { position: absolute; top: -8%; border-radius: 2px; opacity: .95; animation: confall linear forwards; }
+@keyframes confall { 0% { transform: translateY(-10vh) rotate(0); } 100% { transform: translateY(112vh) rotate(720deg); opacity: .9; } }
+
 /* Respect reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *, body::before { animation: none !important; }
+  .confetti { display: none; }
 }

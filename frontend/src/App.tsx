@@ -31,7 +31,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"] | "admin";
 
 export default function App() {
-  const [tab, setTab] = useState<TabId>("how");
+  const [tab, setTab] = useState<TabId>("mint");
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const wrongChain = isConnected && chainId !== robinhood.id;

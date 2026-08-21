@@ -36,7 +36,7 @@ export function SellBackCard() {
         <h2>💸 Sell a Winner back</h2>
         <span className="badge gold">{refundEach !== undefined ? `${fmtPay(refundEach)} ${PAY.symbol} each` : "75% back"}</span>
       </div>
-      <p className="sub">Changed your mind? Burn a Winner NFT for a <b>75% refund</b> (a 25% loss). Only paid wins qualify — staked NFTs must be unstaked first.</p>
+      <p className="sub">Changed your mind? Burn a Winner NFT for a <b>75% refund</b> (a 25% loss). Two rules: <b>unstake it first</b> (staked winners live in the staking contract, not your wallet), and only <b>paid wins</b> qualify — <b>free-play wins refund 0</b>.</p>
       {!isConnected ? (
         <div className="notice">Connect your wallet to see your Winners.</div>
       ) : owned.loading ? (

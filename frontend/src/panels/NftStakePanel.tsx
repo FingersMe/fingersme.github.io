@@ -19,6 +19,17 @@ export function NftStakePanel() {
   const { data: pend } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pending", args: address ? [addresses.usdg, address] : undefined, query: { enabled: !!address && deployed, refetchInterval: 12_000 } });
   const { data: pendF } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pendingFingers", args: address ? [address] : undefined, query: { enabled: !!address && deployed, refetchInterval: 12_000 } });
   const { data: totalStaked } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "totalStaked", query: { enabled: deployed, refetchInterval: 15_000 } });
+  // Loss-NVDA accrues in the GAME until someone flushes it here — surface it + let anyone distribute.
+  const { data: stakerAccrued } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "stakerAccrued", query: { enabled: deployed, refetchInterval: 12_000 } });
+
+  async function distribute() {
+    try {
+      setBusy(true);
+      const hash = await writeContractAsync({ address: addresses.game, abi: abi.game, functionName: "flushToStaking", args: [] });
+      await publicClient!.waitForTransactionReceipt({ hash });
+      toast.success("Loss rewards distributed to stakers 💧");
+    } catch (e: any) { toast.error(err(e)); } finally { setBusy(false); }
+  }
 
   const manualIds = manual.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean).map((x) => { try { return BigInt(x); } catch { return null; } }).filter((x): x is bigint => x !== null);
 
@@ -85,9 +96,15 @@ export function NftStakePanel() {
 
       <div className="card">
         <h2>🏆 Pool</h2>
-        <p className="sub">Every losing bet pipes 25% of its NVDA here. The more Winners staked, the thinner each slice — but volume keeps the sauce flowing.</p>
-        <div className="stat" style={{ marginBottom: 12 }}><div className="k">Total Winners staked</div><div className="v green">{totalStaked !== undefined ? (totalStaked as bigint).toLocaleString() : "—"}</div></div>
-        <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)" }}>
+        <p className="sub">Every losing bet earmarks 25% of its NVDA for stakers. It accrues in the game and is <b>distributed</b> in batches — anyone can trigger it. Your <b>Pending NVDA</b> updates after a distribution; <b>$FINGERS</b> streams continuously.</p>
+        <div className="statbar" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 12 }}>
+          <div className="stat"><div className="k">Total Winners staked</div><div className="v green">{totalStaked !== undefined ? (totalStaked as bigint).toLocaleString() : "—"}</div></div>
+          <div className="stat"><div className="k">Awaiting distribution</div><div className="v gold">{fmtPay(stakerAccrued as bigint | undefined)}</div></div>
+        </div>
+        <button className="btn full" disabled={busy || ((stakerAccrued as bigint | undefined) ?? 0n) === 0n} onClick={distribute}>
+          {busy ? "…" : ((stakerAccrued as bigint | undefined) ?? 0n) > 0n ? `💧 Distribute ${fmtPay(stakerAccrued as bigint)} NVDA to stakers` : "No rewards awaiting distribution"}
+        </button>
+        <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)", marginTop: 12 }}>
           <img src="/won_NFT.png" alt="winners" style={{ width: "100%", display: "block" }} />
         </div>
       </div>

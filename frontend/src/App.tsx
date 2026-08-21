@@ -7,7 +7,6 @@ import { CountdownBar } from "./components/CountdownBar";
 import { EmergencyBanner } from "./components/EmergencyBanner";
 import { HowPanel } from "./panels/HowPanel";
 import { MintPanel } from "./panels/MintPanel";
-import { SwapPanel } from "./panels/SwapPanel";
 import { GalleryPanel } from "./panels/GalleryPanel";
 import { NftStakePanel } from "./panels/NftStakePanel";
 import { ClaimPanel } from "./panels/ClaimPanel";
@@ -15,7 +14,7 @@ import { FingersPanel } from "./panels/FingersPanel";
 import { AdminPanel } from "./panels/AdminPanel";
 import { AnalyticsPanel } from "./panels/AnalyticsPanel";
 import { CalcPanel } from "./panels/CalcPanel";
-import { IconHow, IconPlay, IconSwap, IconGallery, IconStake, IconClaim, IconCoin, IconAdmin, IconChart, IconCalc } from "./components/Icons";
+import { IconHow, IconPlay, IconGallery, IconStake, IconClaim, IconCoin, IconAdmin, IconChart, IconCalc } from "./components/Icons";
 import { robinhood } from "./lib/wagmi";
 import { addresses, abi, isDeployed } from "./lib/contracts";
 
@@ -23,7 +22,6 @@ const TABS = [
   { id: "how", label: "How it works", Icon: IconHow },
   { id: "mint", label: "Play", Icon: IconPlay },
   { id: "calc", label: "Returns calculator", Icon: IconCalc },
-  { id: "swap", label: "Swap → NVDA", Icon: IconSwap },
   { id: "gallery", label: "Gallery & sell-back", Icon: IconGallery },
   { id: "nftstake", label: "Stake NFTs", Icon: IconStake },
   { id: "claim", label: "Claim $FINGERS", Icon: IconClaim },
@@ -123,7 +121,6 @@ export default function App() {
               {tab === "how" && <HowPanel />}
               {tab === "mint" && <MintPanel />}
               {tab === "calc" && <CalcPanel />}
-              {tab === "swap" && <SwapPanel />}
               {tab === "gallery" && <GalleryPanel />}
               {tab === "nftstake" && <NftStakePanel />}
               {tab === "claim" && <ClaimPanel />}

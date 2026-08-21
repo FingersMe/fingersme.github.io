@@ -4,6 +4,7 @@ import { decodeEventLog, formatUnits, maxUint256 } from "viem";
 import toast from "react-hot-toast";
 import { addresses, abi, erc20Abi, isDeployed, fmtPay, PAY } from "../lib/contracts";
 import { ResultModal, type Res } from "../components/ResultModal";
+import { SwapWidget } from "./SwapPanel";
 
 type Attempt = { id: bigint; block: bigint };
 type Result = { id: bigint; won: boolean; nftId: bigint };
@@ -20,6 +21,7 @@ export function MintPanel() {
   const [results, setResults] = useState<Result[]>([]);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<Res[] | null>(null);
+  const [showSwap, setShowSwap] = useState(false);
 
   const deployed = isDeployed(addresses.game);
 
@@ -162,10 +164,18 @@ export function MintPanel() {
           </button>
         )}
 
-        <div className="hint">
-          Balance: <span className="mono">{fmtPay(bal as bigint | undefined)} {PAY.symbol}</span> ·
-          {" "}No NVDA? Use the <b>Swap → NVDA</b> tab to bring any asset in via LI.FI.
+        <div className="hint" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span>Balance: <span className="mono">{fmtPay(bal as bigint | undefined)} {PAY.symbol}</span></span>
+          <button className="btn alt" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => setShowSwap((s) => !s)}>
+            {showSwap ? "✕ Close swap" : "💱 Get NVDA — swap from your wallet"}
+          </button>
         </div>
+        {showSwap && (
+          <div style={{ marginTop: 12 }}>
+            <div className="hint" style={{ marginTop: 0, marginBottom: 8 }}>Swap any token you hold → NVDA, right here (powered by LI.FI). Connect inside the box, pick a token, execute — then play.</div>
+            <SwapWidget />
+          </div>
+        )}
       </div>
 
       <div className="card">

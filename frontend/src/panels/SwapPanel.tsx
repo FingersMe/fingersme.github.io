@@ -31,6 +31,17 @@ const config: Partial<WidgetConfig> = {
   },
 };
 
+/** Just the LI.FI widget (themed) — reused inline inside the Play panel. */
+export function SwapWidget() {
+  return (
+    <div className="swap-wrap">
+      <Suspense fallback={<div className="card glow"><div className="notice">Loading the swap widget…</div></div>}>
+        <LiFiWidget integrator="fingers-me" config={config} />
+      </Suspense>
+    </div>
+  );
+}
+
 export function SwapPanel() {
   return (
     <div className="grid" style={{ gap: 16 }}>

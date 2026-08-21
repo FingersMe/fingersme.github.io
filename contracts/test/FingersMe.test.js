@@ -22,8 +22,10 @@ const USDG_DECIMALS = 18;
 const ONE_USDG = 10n ** BigInt(USDG_DECIMALS);
 const REVEAL_EXTRA = 1;
 const WIN_BP = 4000; // 40%
+const BIG_CAP = 1_000_000n;        // start at the ceiling so escalation is inert in legacy tests
+const LONG_DURATION = 365n * 24n * 60n * 60n; // 365 days so the deadline never interferes
 
-async function deployFixture(winChanceBp = WIN_BP) {
+async function deployFixture(winChanceBp = WIN_BP, capStart = BIG_CAP, durationSecs = LONG_DURATION) {
   const [deployer, sink, creator, alice, bob, carol, ...rest] = await ethers.getSigners();
 
   const ERC20 = await ethers.getContractFactory("MockERC20");
@@ -43,7 +45,9 @@ async function deployFixture(winChanceBp = WIN_BP) {
     creator.address,
     ONE_USDG,
     winChanceBp,
-    REVEAL_EXTRA
+    REVEAL_EXTRA,
+    capStart,
+    durationSecs
   );
 
   await winner.setGame(await game.getAddress());
@@ -267,6 +271,54 @@ describe("FingersMe — free-play credits (multi + owner unlimited)", function (
     for (let id = 0n; id < firstId; id++) {
       try { await game.reveal(id); } catch (_) {}
     }
+  });
+});
+
+describe("FingersMe — rounds, countdown & finalize (the raise)", function () {
+  it("auto-escalates the soft winner cap ×10 as winners mint (round 1→2…)", async () => {
+    // Start at cap 2 with ~100% win so 2 wins fill round 1 and bump to round 2 (cap 20).
+    const { game, alice } = await deployFixture(9999, 2n, LONG_DURATION);
+    expect(await game.round()).to.equal(1n);
+    expect(await game.winnerCap()).to.equal(2n);
+    const { wins } = await commitAndClassify(game, alice, 4, 9999);
+    await mine(2);
+    for (const id of wins) await game.reveal(id);
+    // once totalWinners crossed the cap of 2, it escalates to round 2 with cap 20
+    expect(await game.totalWinners()).to.be.greaterThanOrEqual(2n);
+    expect(await game.round()).to.be.greaterThanOrEqual(2n);
+    expect(await game.winnerCap()).to.equal(20n);
+  });
+
+  it("blocks new commits after the deadline, and the owner can extend it", async () => {
+    const SHORT = 3n * 24n * 60n * 60n; // 3 days
+    const { game, alice } = await deployFixture(WIN_BP, BIG_CAP, SHORT);
+    await game.connect(alice).commit(1); // works before deadline
+    // jump past the deadline
+    await ethers.provider.send("evm_increaseTime", [Number(SHORT) + 10]);
+    await ethers.provider.send("evm_mine", []);
+    await expect(game.connect(alice).commit(1)).to.be.revertedWith("raise ended");
+    // owner extends → commits work again
+    const now = (await ethers.provider.getBlock("latest")).timestamp;
+    await game.extendDeadline(BigInt(now) + 7n * 24n * 60n * 60n);
+    await expect(game.connect(alice).commit(1)).to.not.be.reverted;
+    // deadline can only ever be pushed out, never pulled in
+    await expect(game.extendDeadline(1n)).to.be.revertedWith("must extend");
+    expect(await game.timeLeft()).to.be.greaterThan(0n);
+  });
+
+  it("owner can finalize the raise at any time; raiseInfo reports live state", async () => {
+    const { game, alice } = await deployFixture(WIN_BP, BIG_CAP, LONG_DURATION);
+    await game.connect(alice).commit(2);
+    let info = await game.raiseInfo();
+    expect(info._live).to.equal(true);
+    expect(info._round).to.equal(1n);
+    // finalize even though cap isn't full and deadline is far away
+    await game.finalize();
+    info = await game.raiseInfo();
+    expect(info._live).to.equal(false);
+    await expect(game.connect(alice).commit(1)).to.be.revertedWith("not open");
+    // closeRound1 alias still works (already finalized → reverts not open)
+    await expect(game.closeRound1()).to.be.revertedWith("not open");
   });
 });
 

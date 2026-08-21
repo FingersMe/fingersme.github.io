@@ -16,23 +16,23 @@ const env = (k: string, fallback: Address): Address => {
   return v && /^0x[0-9a-fA-F]{40}$/.test(v) ? (v as Address) : fallback;
 };
 
-// Live Robinhood mainnet (chainId 4663) v2 deployment — 2026-08-20. All addresses are PUBLIC and
+// Live Robinhood mainnet (chainId 4663) v3 deployment — 2026-08-21. All addresses are PUBLIC and
 // safe to ship; they are baked as defaults so the static (GitHub Pages) build is wired without an
 // .env. A VITE_ADDR_* env var still overrides any of them for local/preview against another deploy.
 export const addresses = {
   usdg:          env("VITE_ADDR_USDG",          "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"),
-  game:          env("VITE_ADDR_GAME",          "0xe578bE124692943AcdE8bd0644D9bbBC20984ae0"),
-  token:         env("VITE_ADDR_TOKEN",         "0xbC1f0e44865cB0c3209019eEE1C1FB3273cCE95f"),
-  winnerNFT:     env("VITE_ADDR_WINNER",        "0xCec8901CEeb6d85f890A29e75B2C59eC0d85D11c"),
-  loserNFT:      env("VITE_ADDR_LOSER",         "0x83dE621D2Ce8E14CAEe637e5E643Ae4E94B6C184"),
-  nftStaking:    env("VITE_ADDR_NFTSTAKING",    "0x10832aD8f5A669b70889558aD053462c1014675f"),
-  claim:         env("VITE_ADDR_CLAIM",         "0x5934039Bc659De0feACc108aDfC21248e8b5bf91"),
-  fingersStaking:env("VITE_ADDR_FSTAKING",      "0x3c180fd73f5315Da12bcae3e11F28F74333e9ED6"),
+  game:          env("VITE_ADDR_GAME",          "0x13e011D2432beF48D137d8F908180e2caA70E0Bf"),
+  token:         env("VITE_ADDR_TOKEN",         "0xDE8Ba322DbB3bB9CD015bD9E6F55B87cBb3710fE"),
+  winnerNFT:     env("VITE_ADDR_WINNER",        "0x61995eF4d05847C0D435D04e5B573099B7a22B88"),
+  loserNFT:      env("VITE_ADDR_LOSER",         "0x7824F544b78CfDA141636c6B4397264b94e3F66C"),
+  nftStaking:    env("VITE_ADDR_NFTSTAKING",    "0xb3d580df0Da4B65BB1f52DDA23136dDCBb9A63ED"),
+  claim:         env("VITE_ADDR_CLAIM",         "0x5800395587731311D913208b5197b9DD37a51d35"),
+  fingersStaking:env("VITE_ADDR_FSTAKING",      "0x193A4E8EB44f2D22De944f905B944f0feD52e8e4"),
   zap:           env("VITE_ADDR_ZAP",           Z),
   // Owner tooling / manual-LP peripherals (not user-facing swaps)
-  hook:          env("VITE_ADDR_HOOK",          "0x907a48c9a3D9611cee76bF98A0b56b6534ecC044"),
-  migrator:      env("VITE_ADDR_MIGRATOR",      "0x20ad7aB5e4d11Af3d8993Bbee4dF96019D225D5d"),
-  seeder:        env("VITE_ADDR_SEEDER",        "0xa1B6C37C6023c7cb5107d0a8dea48FA9f254b494"),
+  hook:          env("VITE_ADDR_HOOK",          "0x571462dcAe834e6767F50EcC3944f28D38a74044"),
+  migrator:      env("VITE_ADDR_MIGRATOR",      "0xb5dfc88094A7A1E92D7318ae1C2224922FEa6f0a"),
+  seeder:        env("VITE_ADDR_SEEDER",        "0xdAc80c0d04fdbA30950844DDac99eD6D5Cc58360"),
 } as const;
 
 export const isDeployed = (a: Address) => a !== Z;

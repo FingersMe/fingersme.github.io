@@ -46,6 +46,8 @@ const V4_FEE = 10000;        // 1% pool tier
 const V4_TICK_SPACING = 200;
 const WIN_CHANCE_BP = 4000;  // 40% win
 const REVEAL_EXTRA_BLOCKS = 0; // Robinhood opcode clock: next block suffices
+const WINNER_CAP_START = 100n;                 // round 1 soft tier — auto-escalates ×10 up to 1,000,000
+const RAISE_DURATION_SECS = 30n * 24n * 60n * 60n; // 30-day countdown
 const STAKER_DEFAULT_BP = 3000; // 30% of the post-burn FINGERS skim → stakers
 const BURN_BP = 5000;        // 50% of a FINGERS skim burned (buy/sell fee routing)
 
@@ -106,7 +108,7 @@ async function main() {
   // ── Game ──
   const game = await (await ethers.getContractFactory("FingersMe")).deploy(
     USDG, await winner.getAddress(), await loser.getAddress(), USDG_SINK, deployer.address,
-    mintPrice, WIN_CHANCE_BP, REVEAL_EXTRA_BLOCKS
+    mintPrice, WIN_CHANCE_BP, REVEAL_EXTRA_BLOCKS, WINNER_CAP_START, RAISE_DURATION_SECS
   );
   await game.waitForDeployment();
   await (await winner.setGame(await game.getAddress())).wait();
@@ -164,7 +166,7 @@ async function main() {
     hook: hookAddr,
     migrator: await migrator.getAddress(),
     basketSeeder: await seeder.getAddress(),
-    params: { mintPrice: mintPrice.toString(), winChanceBp: WIN_CHANCE_BP, revealExtraBlocks: REVEAL_EXTRA_BLOCKS, v4Fee: V4_FEE, v4TickSpacing: V4_TICK_SPACING, burnBP: BURN_BP, stakerDefaultBP: STAKER_DEFAULT_BP },
+    params: { mintPrice: mintPrice.toString(), winChanceBp: WIN_CHANCE_BP, revealExtraBlocks: REVEAL_EXTRA_BLOCKS, winnerCapStart: WINNER_CAP_START.toString(), raiseDurationSecs: RAISE_DURATION_SECS.toString(), v4Fee: V4_FEE, v4TickSpacing: V4_TICK_SPACING, burnBP: BURN_BP, stakerDefaultBP: STAKER_DEFAULT_BP },
     basketAssets: { ...RWA, ...MEME },
   };
   const file = path.join(__dirname, "..", `fingers-deployment.${isRobinhood ? "robinhood" : "local"}.json`);

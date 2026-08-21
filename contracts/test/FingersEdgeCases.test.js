@@ -15,7 +15,8 @@ async function deploy(winBp = 4000) {
   const winner = await (await ethers.getContractFactory("FingersWinnerNFT")).deploy("w/", "w/c");
   const loser = await (await ethers.getContractFactory("FingersLoserNFT")).deploy("l/", "l/c");
   const game = await (await ethers.getContractFactory("FingersMe")).deploy(
-    usdg.target, winner.target, loser.target, sink.address, creator.address, ONE, winBp, 1);
+    usdg.target, winner.target, loser.target, sink.address, creator.address, ONE, winBp, 1,
+    1_000_000n, 365n * 24n * 60n * 60n);
   await winner.setGame(game.target);
   await loser.setGame(game.target);
   const nftStaking = await (await ethers.getContractFactory("FingersNFTStaking")).deploy(winner.target, usdg.target);

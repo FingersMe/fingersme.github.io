@@ -73,6 +73,16 @@ export const IconAdmin = ({ size = 20, className }: P) => (
   </svg>
 );
 
+// Bar chart — analytics
+export const IconChart = ({ size = 20, className }: P) => (
+  <svg {...base(size, className)}>
+    <path d="M4 20V4M4 20h16" />
+    <rect x="7" y="12" width="2.6" height="5" rx="0.6" fill="currentColor" fillOpacity="0.2" />
+    <rect x="11.7" y="8" width="2.6" height="9" rx="0.6" fill="currentColor" fillOpacity="0.2" />
+    <rect x="16.4" y="10" width="2.6" height="7" rx="0.6" fill="currentColor" fillOpacity="0.2" />
+  </svg>
+);
+
 // Drumstick — logo/brand flourish
 export const IconDrumstick = ({ size = 20, className }: P) => (
   <svg {...base(size, className)}>

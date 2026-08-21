@@ -93,6 +93,20 @@
 - **Trade-off surfaced to users** in the app's "Trust & safety" panel so nobody is surprised the pool is
   movable-by-vote. The `emergencyWithdraw` event and on-chain proposal give a public trail.
 
+### New in v3 (reviewed 2026-08-21): rounds, 30-day countdown, finalize-anytime
+- **Soft escalating cap** — `winnerCap` starts small (e.g. 100) and auto-×10s to the next tier inside
+  `_reveal` (`_maybeEscalateRound`) as winners mint, capped at the immutable `MAX_WINNERS` (1,000,000).
+  It is a **progress/marketing marker only** — the sole HARD limit remains `MAX_WINNERS` (a win past it is
+  still forced to a loss). No overflow: ×10 is bounded by MAX_WINNERS. *Tested: escalation 1→2, cap math.*
+- **30-day countdown** — `deadline` set at deploy (`block.timestamp + _durationSecs`, bounded 1h…365d).
+  All commit paths (`_commitFor`, `commitFree`) require `block.timestamp < deadline`. `extendDeadline` is
+  owner-only and **can only push out** (`newDeadline > deadline`, ≤ now+365d) — never shorten. *Tested:
+  commits revert after deadline, extend re-opens, shrink reverts.*
+- **finalize() anytime** — owner closes the raise whenever (cap/deadline irrelevant); `closeRound1` kept as
+  a thin alias. Funds are never trapped: `withdrawWinUsdg` / flushes are callable independent of finalize.
+  *Tested: finalize mid-raise blocks new commits; raiseInfo reflects live state.*
+- Read-only `raiseInfo()` / `timeLeft()` added for the UI countdown + analytics (no state change).
+
 ## Residual risks (documented, must be addressed operationally)
 1. **v4 swap-path fork tests — DONE (pass on the live Robinhood v4 PoolManager).** Hook fee-take/
    settle + burn + reflexive buyback, zap asset→USDG swap + commit, basket auto-seed
@@ -110,7 +124,7 @@
 6. **Independent audit** — REQUIRED before real funds.
 
 ## Test status
-**33/33 tests green — 29 unit + 4 live Robinhood-v4 fork** (v2 added 3 unit tests: free-credits,
+**36/36 tests green — 32 unit + 4 live Robinhood-v4 fork** (v3 added 3: rounds/countdown/finalize; v2 added 3: free-credits,
 sell-back, vote-gated emergency). `scripts/simulate.js` reconciles every USDG bucket end-to-end and
 projects to the 1,000,000-winner scale. Compiles clean (viaIR, cancun).
 

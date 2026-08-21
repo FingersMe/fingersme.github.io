@@ -47,7 +47,8 @@ describe("FingersZap — pay with any asset (Robinhood fork)", function () {
     const loser = await (await ethers.getContractFactory("FingersLoserNFT")).deploy("l/", "l/c");
     const game = await (await ethers.getContractFactory("FingersMe")).deploy(
       await usdg.getAddress(), await winner.getAddress(), await loser.getAddress(),
-      sink.address, creator.address, E(1), 4000, 0);
+      sink.address, creator.address, E(1), 4000, 0,
+      1_000_000n, 365n * 24n * 60n * 60n);
     await winner.setGame(await game.getAddress());
     await loser.setGame(await game.getAddress());
 

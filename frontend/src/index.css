@@ -170,7 +170,19 @@ input:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgb
 
 /* vote progress bar */
 .pbar { height: 12px; border-radius: 999px; background: #0a0803; border: 1px solid var(--border); overflow: hidden; }
-.pbar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--lime), var(--gold)); transition: width .4s; }
+.pbar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--lime), var(--gold)); transition: width .4s; box-shadow: 0 0 14px rgba(155,232,15,.4); }
+
+/* ── Countdown bar ── */
+.cd-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cd-title { font-family: "Luckiest Guy", cursive; font-size: 20px; color: var(--gold); letter-spacing: .01em; }
+.cd-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.cd-clock { display: flex; align-items: flex-end; gap: 6px; }
+.cd-cell { text-align: center; background: #0a0803; border: 1px solid var(--border); border-radius: 10px; padding: 7px 11px; min-width: 52px; }
+.cd-num { font-size: 26px; font-weight: 800; line-height: 1; color: var(--lime); text-shadow: 0 0 14px rgba(155,232,15,.35); }
+.cd-lab { font-size: 9px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-top: 4px; }
+.cd-sep { font-size: 22px; color: var(--muted); font-weight: 800; align-self: center; padding-bottom: 12px; }
+.cd-meta { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+@media (max-width: 560px) { .cd-cell { min-width: 42px; padding: 6px 7px; } .cd-num { font-size: 21px; } }
 
 /* skeleton shimmer for robust loading states */
 @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }

@@ -27,6 +27,14 @@ export function MintPanel() {
     address: addresses.usdg, abi: erc20Abi, functionName: "allowance",
     args: address ? [address, addresses.game] : undefined, query: { enabled: !!address && deployed },
   });
+  const { data: freeCredits, refetch: refetchFree } = useReadContract({
+    address: addresses.game, abi: abi.game, functionName: "freeCredits",
+    args: address ? [address] : undefined, query: { enabled: !!address && deployed, refetchInterval: 15_000 },
+  });
+  const { data: owner } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "owner", query: { enabled: deployed } });
+  const isOwner = !!address && !!owner && (address as string).toLowerCase() === (owner as string).toLowerCase();
+  const credits = (freeCredits as bigint | undefined) ?? 0n;
+  const canFree = isOwner || credits > 0n;
 
   const mintPrice = (price as bigint) ?? 1_000_000n;
   const cost = mintPrice * BigInt(count);
@@ -44,10 +52,13 @@ export function MintPanel() {
     } catch (e: any) { toast.error(shortErr(e)); } finally { setBusy(false); }
   }
 
-  async function commit() {
+  async function commit(free = false) {
     try {
       setBusy(true);
-      const hash = await writeContractAsync({ address: addresses.game, abi: abi.game, functionName: "commit", args: [BigInt(count)] });
+      const hash = await writeContractAsync({
+        address: addresses.game, abi: abi.game,
+        functionName: free ? "commitFree" : "commit", args: [BigInt(count)],
+      });
       const rc = await publicClient!.waitForTransactionReceipt({ hash });
       const fresh: Attempt[] = [];
       for (const log of rc.logs) {
@@ -61,6 +72,7 @@ export function MintPanel() {
         } catch { /* not our event */ }
       }
       setPending((p) => [...p, ...fresh]);
+      refetchFree();
       toast.success(`Committed ${fresh.length} play${fresh.length > 1 ? "s" : ""} — reveal in a moment`);
     } catch (e: any) { toast.error(shortErr(e)); } finally { setBusy(false); }
   }
@@ -118,12 +130,18 @@ export function MintPanel() {
         ) : needsApprove ? (
           <button className="btn full" disabled={busy} onClick={approve}>{busy ? "Approving…" : "Approve USDG"}</button>
         ) : (
-          <button className="btn full pulse" disabled={busy || isPending} onClick={commit}>{busy ? "Committing…" : `🎲 Play ${count}×`}</button>
+          <button className="btn full pulse" disabled={busy || isPending} onClick={() => commit(false)}>{busy ? "Committing…" : `🎲 Play ${count}×`}</button>
+        )}
+
+        {canFree && (
+          <button className="btn full win" style={{ marginTop: 10 }} disabled={busy} onClick={() => commit(true)}>
+            {busy ? "…" : isOwner ? `🎟️ Play ${count}× FREE (owner)` : `🎟️ Play ${count}× FREE — ${credits.toString()} credit${credits === 1n ? "" : "s"} left`}
+          </button>
         )}
 
         <div className="hint">
           Balance: <span className="mono">{bal !== undefined ? formatUnits(bal as bigint, 6) : "—"} USDG</span> ·
-          {" "}Want to pay with WETH / NVDA / a memecoin? The <b>Zap</b> converts it to USDG for you (coming to this panel).
+          {" "}No USDG? Use the <b>Swap → USDG</b> tab to bring any asset in via LI.FI.
         </div>
       </div>
 

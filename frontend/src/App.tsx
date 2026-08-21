@@ -3,6 +3,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 import { StatsBar } from "./components/StatsBar";
+import { CountdownBar } from "./components/CountdownBar";
 import { EmergencyBanner } from "./components/EmergencyBanner";
 import { HowPanel } from "./panels/HowPanel";
 import { MintPanel } from "./panels/MintPanel";
@@ -12,7 +13,8 @@ import { NftStakePanel } from "./panels/NftStakePanel";
 import { ClaimPanel } from "./panels/ClaimPanel";
 import { FingersPanel } from "./panels/FingersPanel";
 import { AdminPanel } from "./panels/AdminPanel";
-import { IconHow, IconPlay, IconSwap, IconGallery, IconStake, IconClaim, IconCoin, IconAdmin } from "./components/Icons";
+import { AnalyticsPanel } from "./panels/AnalyticsPanel";
+import { IconHow, IconPlay, IconSwap, IconGallery, IconStake, IconClaim, IconCoin, IconAdmin, IconChart } from "./components/Icons";
 import { robinhood } from "./lib/wagmi";
 import { addresses, abi, isDeployed } from "./lib/contracts";
 
@@ -24,6 +26,7 @@ const TABS = [
   { id: "nftstake", label: "Stake NFTs", Icon: IconStake },
   { id: "claim", label: "Claim $FINGERS", Icon: IconClaim },
   { id: "fingers", label: "$FINGERS staking", Icon: IconCoin },
+  { id: "analytics", label: "Analytics", Icon: IconChart },
 ] as const;
 type TabId = (typeof TABS)[number]["id"] | "admin";
 
@@ -106,6 +109,7 @@ export default function App() {
           )}
 
           <EmergencyBanner />
+          <CountdownBar />
           <StatsBar />
 
           <AnimatePresence mode="wait">
@@ -117,6 +121,7 @@ export default function App() {
               {tab === "nftstake" && <NftStakePanel />}
               {tab === "claim" && <ClaimPanel />}
               {tab === "fingers" && <FingersPanel />}
+              {tab === "analytics" && <AnalyticsPanel />}
               {tab === "admin" && isOwner && <AdminPanel />}
             </motion.div>
           </AnimatePresence>

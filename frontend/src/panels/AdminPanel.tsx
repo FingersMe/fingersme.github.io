@@ -23,6 +23,7 @@ export function AdminPanel() {
   const [dustInput, setDustInput] = useState("");
   const [emgToken, setEmgToken] = useState(addresses.usdg as string);
   const [emgTo, setEmgTo] = useState("");
+  const [deadlineInput, setDeadlineInput] = useState("");
 
   const deployed = isDeployed(addresses.game);
 
@@ -33,6 +34,7 @@ export function AdminPanel() {
   const { data: claimOpened, refetch: refetchOpened } = useReadContract({ address: addresses.claim, abi: abi.claim, functionName: "opened", query: { enabled: isDeployed(addresses.claim), refetchInterval: 12_000 } });
   const { data: emg, refetch: refetchEmg } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "emergency", query: { enabled: deployed, refetchInterval: 12_000 } });
   const { data: emgPasses, refetch: refetchEmgPass } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "emergencyPasses", query: { enabled: deployed, refetchInterval: 12_000 } });
+  const { data: raise } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "raiseInfo", query: { enabled: deployed, refetchInterval: 12_000 } });
 
   const isOwner = !!address && !!owner && (address as string).toLowerCase() === (owner as string).toLowerCase();
 
@@ -85,6 +87,11 @@ export function AdminPanel() {
   const snapOk = /^\d+$/.test(snapInput.trim());
   const emgSupply = emg ? ((emg as any[])[2] as bigint) : 0n;
   const needVotes = emgSupply > 0n ? ((emgSupply + 1n) / 2n).toString() : "—";
+  const ri = raise as any[] | undefined;
+  const raiseRound = ri ? (ri[0] as bigint).toString() : "…";
+  const raiseCap = ri ? (ri[1] as bigint).toLocaleString() : "…";
+  const raiseDeadline = ri ? new Date(Number(ri[2] as bigint) * 1000).toLocaleString() : "…";
+  const deadlineTs = deadlineInput ? Math.floor(new Date(deadlineInput).getTime() / 1000) : 0;
 
   return (
     <div className="grid" style={{ gap: 18, maxWidth: 820, margin: "0 auto" }}>
@@ -113,17 +120,28 @@ export function AdminPanel() {
 
       {/* Round control */}
       <div className="card glow">
-        <h2>🎮 Round control</h2>
-        <p className="sub">Pause the game, snapshot an old block hash for stuck reveals, then close Round 1 once everyone has played.</p>
+        <h2>🎮 Raise control</h2>
+        <p className="sub">The winner cap auto-escalates ×10 (round 1→2→3…). Pause anytime, extend the 30-day countdown, or <b>finalize</b> the raise whenever you want — funds are never trapped (withdraw WIN-USDG below).</p>
+        <div className="statbar" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 12 }}>
+          <div className="stat"><div className="k">Round</div><div className="v gold">{raiseRound}</div></div>
+          <div className="stat"><div className="k">Winner cap (tier)</div><div className="v">{raiseCap}</div></div>
+          <div className="stat"><div className="k">Ends</div><div className="v" style={{ fontSize: 14 }}>{raiseDeadline}</div></div>
+        </div>
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           <button className="btn" disabled={!!busy} onClick={() => run("pause", addresses.game, abi.game, "setPaused", [!paused], paused ? "Game resumed" : "Game paused")}>
             {busy === "pause" ? "…" : paused ? "▶️ Resume game" : "⏸️ Pause game"}
           </button>
           <button className="btn red" disabled={!!busy} onClick={() => {
-            if (!confirm("Close Round 1? No new plays after this — only reveals/forfeits. This is irreversible.")) return;
-            run("close", addresses.game, abi.game, "closeRound1", [], "Round 1 closed");
+            if (!confirm("Finalize the raise? No new plays after this — only reveals/forfeits, then open claim + seed LP. Irreversible.")) return;
+            run("close", addresses.game, abi.game, "finalize", [], "Raise finalized");
           }}>
-            {busy === "close" ? "Closing…" : "🚪 Close Round 1"}
+            {busy === "close" ? "Finalizing…" : "🏁 Finalize raise"}
+          </button>
+        </div>
+        <div className="row" style={{ marginTop: 12, gap: 8 }}>
+          <input type="datetime-local" value={deadlineInput} onChange={(e) => setDeadlineInput(e.target.value)} style={{ flex: 2, minWidth: 200 }} />
+          <button className="btn" disabled={!!busy || !deadlineTs} onClick={() => run("extend", addresses.game, abi.game, "extendDeadline", [BigInt(deadlineTs)], "Deadline extended")}>
+            {busy === "extend" ? "…" : "⏱️ Extend deadline"}
           </button>
         </div>
         <div className="row" style={{ marginTop: 12, gap: 8 }}>
@@ -132,7 +150,7 @@ export function AdminPanel() {
             {busy === "snap" ? "…" : "📸 Snapshot"}
           </button>
         </div>
-        <div className="hint" style={{ marginTop: 6 }}>Use snapshot only if a commit's block is about to age past the 256-block window before its owner reveals.</div>
+        <div className="hint" style={{ marginTop: 6 }}>Snapshot only if a commit's block is about to age past the 256-block window before its owner reveals.</div>
       </div>
 
       {/* Settlement flows */}

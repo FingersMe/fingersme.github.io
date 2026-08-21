@@ -78,6 +78,15 @@ contract FingersMe is ReentrancyGuard, Ownable {
     // When true, new commits are blocked (reveals/forfeits/flushes always remain available).
     bool public paused;
 
+    // ── Rounds + countdown (the fundraise) ───────────────────
+    // The game is a time-boxed raise: it opens with a small soft winner tier (`winnerCap`, e.g. 100)
+    // that AUTO-escalates ×10 as winners mint (round 1→2→3…) up to the immutable MAX_WINNERS ceiling.
+    // Commits also hard-stop at `deadline`. The owner can pause, extend the deadline, or finalize the
+    // raise at ANY time — so funds are never trapped and the target is simply "whatever is raised".
+    uint256 public winnerCap;   // current soft tier (progress marker); auto-grows, never exceeds MAX_WINNERS
+    uint256 public round;       // 1-based round counter (increments each auto-escalation)
+    uint256 public deadline;    // unix ts after which new commits are blocked
+
     // ── Mutable wiring (owner) ───────────────────────────────
     address public lpTreasury;   // where retained WIN USDG is withdrawn (default: owner)
     address public nftStaking;   // NFT-staking contract receiving the 25% loss stream (set once)
@@ -148,7 +157,9 @@ contract FingersMe is ReentrancyGuard, Ownable {
     event EmergencyCancelled(uint256 indexed nonce);
     event EmergencyWithdraw(uint256 indexed nonce, address indexed token, address indexed to, uint256 amount);
     event Paused(bool paused);
-    event Round1Closed(uint256 totalWinners, uint256 totalLosers);
+    event Round1Closed(uint256 totalWinners, uint256 totalLosers); // emitted by finalize() (kept name for compat)
+    event RoundOpened(uint256 indexed round, uint256 winnerCap);
+    event DeadlineExtended(uint256 newDeadline);
     event LpTreasurySet(address indexed treasury);
     event NftStakingSet(address indexed staking);
     event SinkFlushed(address indexed sink, uint256 amount);
@@ -164,7 +175,9 @@ contract FingersMe is ReentrancyGuard, Ownable {
         address _creator,
         uint256 _mintPrice,
         uint256 _winChanceBp,
-        uint256 _revealExtraBlocks
+        uint256 _revealExtraBlocks,
+        uint256 _winnerCapStart,
+        uint256 _durationSecs
     ) Ownable(msg.sender) {
         require(_usdg != address(0), "zero usdg");
         require(_winnerNFT != address(0) && _loserNFT != address(0), "zero nft");
@@ -173,6 +186,8 @@ contract FingersMe is ReentrancyGuard, Ownable {
         require(_mintPrice > 0, "zero price");
         require(_winChanceBp > 0 && _winChanceBp < BP, "bad chance");
         require(_revealExtraBlocks <= 10, "bad reveal delay");
+        require(_winnerCapStart > 0 && _winnerCapStart <= MAX_WINNERS, "bad cap");
+        require(_durationSecs >= 1 hours && _durationSecs <= 365 days, "bad duration");
 
         usdg = IERC20(_usdg);
         winnerNFT = IFingersNFT(_winnerNFT);
@@ -182,6 +197,10 @@ contract FingersMe is ReentrancyGuard, Ownable {
         mintPrice = _mintPrice;
         winChanceBp = _winChanceBp;
         revealExtraBlocks = _revealExtraBlocks;
+
+        winnerCap = _winnerCapStart;      // round 1 soft tier (e.g. 100)
+        round = 1;
+        deadline = block.timestamp + _durationSecs; // e.g. 30 days
 
         lpTreasury = msg.sender; // default; owner can retarget the WIN-USDG withdrawal
     }
@@ -206,6 +225,7 @@ contract FingersMe is ReentrancyGuard, Ownable {
     function _commitFor(address player, address payer, uint256 attempts) private returns (uint256 firstCommitId) {
         require(phase == Phase.OPEN, "not open");
         require(!paused, "paused");
+        require(block.timestamp < deadline, "raise ended");
         require(attempts >= 1 && attempts <= MAX_BATCH, "bad attempts");
         require(totalWinners < MAX_WINNERS, "winner cap reached");
 
@@ -227,6 +247,7 @@ contract FingersMe is ReentrancyGuard, Ownable {
     function commitFree(uint256 attempts) external nonReentrant returns (uint256 firstCommitId) {
         require(phase == Phase.OPEN, "not open");
         require(!paused, "paused");
+        require(block.timestamp < deadline, "raise ended");
         require(attempts >= 1 && attempts <= MAX_BATCH, "bad attempts");
         require(totalWinners < MAX_WINNERS, "winner cap reached");
 
@@ -324,6 +345,7 @@ contract FingersMe is ReentrancyGuard, Ownable {
             winUsdgRetained += price; // WIN money stays for the owner to seed LP / fund sell-backs
             nftId = winnerNFT.mint(player);
             if (price > 0) winnerPaid[nftId] = price; // enables 75% sell-back for paid wins
+            _maybeEscalateRound();                    // auto-advance the soft tier (round 1→2→3…)
             if (totalWinners == MAX_WINNERS) emit WinnerCapReached();
         } else {
             totalLosers++;
@@ -464,11 +486,38 @@ contract FingersMe is ReentrancyGuard, Ownable {
         emit NftStakingSet(staking);
     }
 
-    /// @notice Stop accepting new commits. Reveals/forfeits/flushes continue afterwards.
-    function closeRound1() external onlyOwner {
+    /// @notice FINALIZE / bond the raise — stop accepting new commits. Callable by the owner at ANY
+    ///         time (cap not full, deadline not reached — doesn't matter). Reveals/forfeits/flushes
+    ///         continue afterwards; then open the claim and seed LP with the retained WIN-USDG.
+    function finalize() public onlyOwner {
         require(phase == Phase.OPEN, "not open");
         phase = Phase.CLOSED;
         emit Round1Closed(totalWinners, totalLosers);
+    }
+
+    /// @notice Backwards-compatible alias for finalize().
+    function closeRound1() external onlyOwner {
+        finalize();
+    }
+
+    /// @notice Push the countdown out (owner). Can only ever extend, never shorten.
+    function extendDeadline(uint256 newDeadline) external onlyOwner {
+        require(newDeadline > deadline, "must extend");
+        require(newDeadline <= block.timestamp + 365 days, "too far");
+        deadline = newDeadline;
+        emit DeadlineExtended(newDeadline);
+    }
+
+    /// @dev Auto-advance the soft winner tier once the current cap is reached: ×10 up to MAX_WINNERS.
+    ///      Purely a progress/marketing marker (round 1→2→3…); the only HARD limit stays MAX_WINNERS.
+    function _maybeEscalateRound() private {
+        if (totalWinners >= winnerCap && winnerCap < MAX_WINNERS) {
+            uint256 next = winnerCap * 10;
+            if (next > MAX_WINNERS) next = MAX_WINNERS;
+            winnerCap = next;
+            round++;
+            emit RoundOpened(round, winnerCap);
+        }
     }
 
     // ── Emergency withdraw (winner-NFT vote gated) ───────────────
@@ -571,6 +620,42 @@ contract FingersMe is ReentrancyGuard, Ownable {
     ///         (and therefore the FingersClaim per-NFT share) is final.
     function isSettled() external view returns (bool) {
         return phase == Phase.CLOSED && unsettledCommits == 0;
+    }
+
+    /// @notice Countdown seconds remaining before commits hard-stop (0 once the deadline has passed).
+    function timeLeft() public view returns (uint256) {
+        return block.timestamp >= deadline ? 0 : deadline - block.timestamp;
+    }
+
+    /// @notice One-call snapshot for the countdown + analytics UI.
+    function raiseInfo()
+        external
+        view
+        returns (
+            uint256 _round,
+            uint256 _winnerCap,
+            uint256 _deadline,
+            uint256 _timeLeft,
+            bool _live,               // commits currently accepted?
+            uint256 _totalWinners,
+            uint256 _totalLosers,
+            uint256 _totalAttempts,
+            uint256 _totalUsdgCollected,
+            uint256 _winUsdgRetained
+        )
+    {
+        return (
+            round,
+            winnerCap,
+            deadline,
+            timeLeft(),
+            phase == Phase.OPEN && !paused && block.timestamp < deadline && totalWinners < MAX_WINNERS,
+            totalWinners,
+            totalLosers,
+            totalAttempts,
+            totalUsdgCollected,
+            winUsdgRetained
+        );
     }
 
     function stats()

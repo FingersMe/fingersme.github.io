@@ -46,7 +46,7 @@ async function main() {
   const Game = await ethers.getContractFactory("FingersMe");
   const game = await Game.deploy(
     usdg.target, winner.target, loser.target, sink.address, creator.address,
-    MINT_PRICE, WIN_BP, REVEAL_EXTRA
+    MINT_PRICE, WIN_BP, REVEAL_EXTRA, 1_000_000n, 365n * 24n * 60n * 60n
   );
   await winner.setGame(game.target);
   await loser.setGame(game.target);

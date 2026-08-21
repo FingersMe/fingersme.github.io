@@ -26,6 +26,16 @@ export function HowPanel() {
       </div>
 
       <div className="card glow">
+        <h2>⏳ A 30-day, round-based raise</h2>
+        <p className="sub">Fingers isn't a fixed sale — it's a countdown. Whatever's raised by the buzzer (or when the team bonds the token) is the raise.</p>
+        <div className="mflow">
+          <div className="mrow"><span className="tag2 t-win">ROUNDS</span><span className="arrow">→</span><p>Starts at a <b>100-winner</b> tier and auto-escalates ×10 (round 1→2→3…) up to a hard <b>1,000,000</b> ceiling. The more it fills, the bigger it gets.</p></div>
+          <div className="mrow"><span className="tag2 t-house">COUNTDOWN</span><span className="arrow">→</span><p>A <b>30-day clock</b> runs at the top. When it hits zero, new plays stop — reveals still settle. The team can extend it.</p></div>
+          <div className="mrow"><span className="tag2 t-lose">BOND</span><span className="arrow">→</span><p>The team can <b>finalize anytime</b>: plays close, the 50M $FINGERS splits across whoever won, and the raised USDG seeds locked liquidity.</p></div>
+        </div>
+      </div>
+
+      <div className="card glow">
         <h2>💸 Where the money goes</h2>
         <p className="sub">Every play's USDG is routed by outcome into separate on-chain buckets — the split can't be dodged.</p>
         <div className="mflow">

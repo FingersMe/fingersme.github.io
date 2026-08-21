@@ -473,6 +473,87 @@ describe("FingersNFTStaking — $FINGERS 90-day emission", function () {
   });
 });
 
+async function predictGamble(commitBlock, user, amt) {
+  const blk = await ethers.provider.getBlock(commitBlock);
+  const seed = ethers.solidityPackedSha256(["bytes32", "address", "uint256"], [blk.hash, user, amt]);
+  return (BigInt(seed) % 2n) === 0n; // won
+}
+
+describe("FingersNFTStaking — double-or-nothing $FINGERS claim gamble", function () {
+  async function staked() {
+    const f = await deployFixture(9999);
+    const a = await commitAndClassify(f.game, f.alice, 6, 9999);
+    const b = await commitAndClassify(f.game, f.bob, 6, 9999);
+    await mine(2);
+    for (const id of [...a.wins, ...b.wins]) await f.game.reveal(id);
+    const aT = await winnerTokensOf(f.winner, f.alice), bT = await winnerTokensOf(f.winner, f.bob);
+    const st = await f.staking.getAddress(), tk = await f.token.getAddress();
+    await f.token.transfer(st, await f.token.CLAIM_ALLOCATION());
+    await f.staking.configureEmission(tk, 90 * 24 * 60 * 60);
+    await f.winner.connect(f.alice).setApprovalForAll(st, true);
+    await f.winner.connect(f.bob).setApprovalForAll(st, true);
+    await f.staking.connect(f.alice).stake(aT); // auto-starts emission
+    await f.staking.connect(f.bob).stake(bT);
+    await ethers.provider.send("evm_increaseTime", [5 * 24 * 60 * 60]);
+    await ethers.provider.send("evm_mine", []);
+    f.aT = aT; f.bT = bT;
+    return f;
+  }
+
+  it("commits (escrows) pending FINGERS, reveals a fair 50/50, and keeps the jackpot solvent", async () => {
+    const { staking, token, alice, bob, aT } = await staked();
+    if (!aT.length) return;
+
+    // alice commits her claimable → escrowed, pending drops to ~0
+    await staking.connect(alice).gambleClaimCommit();
+    const amtA = await staking.gambleAmount(alice.address); // actual escrowed amount
+    expect(amtA).to.be.greaterThan(0n);
+    expect(await staking.pendingFingers(alice.address)).to.equal(0n);
+    await expect(staking.connect(alice).gambleClaimCommit()).to.be.revertedWith("gamble pending");
+
+    const cbA = Number(await staking.gambleBlock(alice.address));
+    await mine(1);
+    const wonA = await predictGamble(cbA, alice.address, amtA);
+    const balA0 = await token.balanceOf(alice.address);
+    await staking.connect(alice).gambleClaimReveal();
+    const balA1 = await token.balanceOf(alice.address);
+    if (wonA) { expect(balA1 - balA0).to.equal(amtA); expect(await staking.fingersJackpot()).to.equal(0n); } // empty pot → 1× on win
+    else { expect(balA1).to.equal(balA0); expect(await staking.fingersJackpot()).to.equal(amtA); }        // loss feeds pot
+
+    // bob gambles — if the pot has funds and he wins, he gets a bonus (up to 2×)
+    await staking.connect(bob).gambleClaimCommit();
+    const amtB = await staking.gambleAmount(bob.address);
+    const cbB = Number(await staking.gambleBlock(bob.address));
+    await mine(1);
+    const wonB = await predictGamble(cbB, bob.address, amtB);
+    const potBefore = await staking.fingersJackpot();
+    const balB0 = await token.balanceOf(bob.address);
+    await staking.connect(bob).gambleClaimReveal();
+    const balB1 = await token.balanceOf(bob.address);
+    if (wonB) {
+      const bonus = amtB < potBefore ? amtB : potBefore;
+      expect(balB1 - balB0).to.equal(amtB + bonus);
+      expect(await staking.fingersJackpot()).to.equal(potBefore - bonus);
+    } else {
+      expect(balB1).to.equal(balB0);
+      expect(await staking.fingersJackpot()).to.equal(potBefore + amtB);
+    }
+    // contract stays solvent: physical balance ≥ jackpot
+    expect(await token.balanceOf(await staking.getAddress())).to.be.greaterThanOrEqual(await staking.fingersJackpot());
+  });
+
+  it("forfeits an un-revealed gamble to the jackpot after the window (no dodging a loss)", async () => {
+    const { staking, alice } = await staked();
+    await staking.connect(alice).gambleClaimCommit();
+    const amt = await staking.gambleAmount(alice.address);
+    await mine(260); // blockhash of the commit block ages out
+    await expect(staking.connect(alice).gambleClaimReveal()).to.be.revertedWith("aged out");
+    await staking.gambleForfeit(alice.address); // anyone can forfeit it → jackpot
+    expect(await staking.gambleAmount(alice.address)).to.equal(0n);
+    expect(await staking.fingersJackpot()).to.equal(amt); // the escrowed stake went to the jackpot, not back to her
+  });
+});
+
 describe("FingersLPMigrator — auto-LP config + guards", function () {
   it("configures once and gates graduateAuto on config + a settled game", async () => {
     const { game, token, usdg, deployer } = await deployFixture();

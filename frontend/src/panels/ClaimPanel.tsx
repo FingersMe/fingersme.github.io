@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
-import { formatUnits } from "viem";
+import { formatUnits, decodeEventLog } from "viem";
 import toast from "react-hot-toast";
 import { addresses, abi, isDeployed } from "../lib/contracts";
 
@@ -19,6 +19,8 @@ export function ClaimPanel() {
   const { data: info } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "fingersEmissionInfo", query: { enabled: on, refetchInterval: 15_000 } });
   const { data: pend, refetch: refetchPend } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pendingFingers", args: address ? [address] : undefined, query: { enabled: on && !!address, refetchInterval: 10_000 } });
   const { data: staked } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "stakedCount", args: address ? [address] : undefined, query: { enabled: on && !!address, refetchInterval: 15_000 } });
+  const { data: jackpot } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "fingersJackpot", query: { enabled: on, refetchInterval: 12_000 } });
+  const { data: pg, refetch: refetchPg } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pendingGamble", args: address ? [address] : undefined, query: { enabled: on && !!address, refetchInterval: 5_000 } });
 
   if (!on) return <div className="card glow"><div className="notice">Staking isn't wired yet.</div></div>;
 
@@ -29,6 +31,10 @@ export function ClaimPanel() {
   const days = Math.floor(secsLeft / 86400), hrs = Math.floor((secsLeft % 86400) / 3600);
   const pct = total > 0n ? Math.min(100, Number((recognized * 100n) / total)) : 0;
   const myStaked = (staked as bigint | undefined) ?? 0n;
+  const claimable = (pend as bigint | undefined) ?? 0n;
+  const pgt = pg as readonly [bigint, bigint, boolean] | undefined;
+  const gambleAmt = pgt?.[0] ?? 0n;
+  const gambleRevealable = pgt?.[2] ?? false;
 
   async function claim() {
     try {
@@ -37,6 +43,37 @@ export function ClaimPanel() {
       await publicClient!.waitForTransactionReceipt({ hash });
       toast.success("Claimed $FINGERS 🎁"); refetchPend();
     } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); } finally { setBusy(false); }
+  }
+
+  // Reveal a live/committed gamble; returns true if it resolved.
+  async function reveal() {
+    try {
+      setBusy(true);
+      const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "gambleClaimReveal", args: [] });
+      const rc = await publicClient!.waitForTransactionReceipt({ hash });
+      let won = false, payout = 0n;
+      for (const log of rc.logs) {
+        try { const ev = decodeEventLog({ abi: abi.nftStaking, data: log.data, topics: log.topics });
+          if (ev.eventName === "GambleRevealed") { won = (ev.args as any).won; payout = (ev.args as any).payout as bigint; } } catch {}
+      }
+      if (won) toast.success(`🎉 DOUBLE! You won ${fmtF(payout)} $FINGERS!`, { duration: 6000 });
+      else toast("💀 Nothing this time — your stake fed the jackpot.", { icon: "🎲", duration: 6000 });
+      refetchPend(); refetchPg();
+    } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); } finally { setBusy(false); }
+  }
+
+  // Commit the claim to a 50/50, then auto-reveal a block later.
+  async function gamble() {
+    try {
+      setBusy(true);
+      const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "gambleClaimCommit", args: [] });
+      const rc = await publicClient!.waitForTransactionReceipt({ hash });
+      toast("🎲 Bet placed — revealing your flip…", { icon: "🎲" });
+      refetchPg();
+      // wait for the next block, then reveal
+      for (let i = 0; i < 20; i++) { const bn = await publicClient!.getBlockNumber(); if (bn > rc.blockNumber) break; await new Promise((r) => setTimeout(r, 1500)); }
+      await reveal();
+    } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); setBusy(false); }
   }
 
   return (
@@ -62,12 +99,35 @@ export function ClaimPanel() {
       <div className="card glow">
         {myStaked === 0n ? (
           <div className="notice">You have <b>0 Winner NFTs staked</b> — head to <b>Stake NFTs</b> and stake to start earning $FINGERS + NVDA.</div>
+        ) : gambleAmt > 0n ? (
+          <>
+            <div className="notice pulse" style={{ marginBottom: 12, borderColor: "var(--green)", color: "var(--green)" }}>
+              🎲 Bet placed: <b>{fmtF(gambleAmt)} $FINGERS</b> riding on the flip. {gambleRevealable ? "Reveal it now!" : "Waiting for the next block…"}
+            </div>
+            <button className="btn full win" disabled={busy || !gambleRevealable} onClick={reveal}>{busy ? "Revealing…" : "🎲 Reveal my flip"}</button>
+          </>
         ) : (
-          <button className="btn full win" disabled={!isConnected || busy || ((pend as bigint | undefined) ?? 0n) === 0n} onClick={claim}>
-            {busy ? "Claiming…" : `🎁 Claim ${fmtF(pend as bigint | undefined)} $FINGERS`}
-          </button>
+          <>
+            <div className="row" style={{ gap: 10 }}>
+              <button className="btn win" style={{ flex: 1 }} disabled={!isConnected || busy || claimable === 0n} onClick={claim}>
+                {busy ? "…" : `🎁 Claim ${fmtF(pend as bigint | undefined)}`}
+              </button>
+              <button className="btn" style={{ flex: 1 }} disabled={!isConnected || busy || claimable === 0n} onClick={() => {
+                if (!confirm(`Gamble your ${fmtF(pend as bigint | undefined)} $FINGERS on a 50/50? Win = up to 2× (from the jackpot). Lose = it feeds the jackpot. The safe Claim keeps it all.`)) return;
+                gamble();
+              }}>
+                {busy ? "…" : "🎲 Double or nothing"}
+              </button>
+            </div>
+            <div className="an-head" style={{ marginTop: 14 }}>
+              <span className="sub" style={{ margin: 0 }}>🎰 Jackpot pool</span>
+              <span className="badge win">{fmtF(jackpot as bigint | undefined)} $FINGERS</span>
+            </div>
+            <div className="hint" style={{ marginTop: 8 }}>
+              <b>Claim</b> = keep it all, safely. <b>Double or nothing</b> = a provably-fair 50/50 (commit-reveal): win pays up to <b>2×</b> from the jackpot, lose sends your claim into the jackpot for the next winner. No burns — pure PvP. Claiming also sweeps your pending NVDA.
+            </div>
+          </>
         )}
-        <div className="hint" style={{ marginTop: 10 }}>Claiming here also sweeps any pending NVDA staking rewards in the same tx.</div>
       </div>
     </div>
   );

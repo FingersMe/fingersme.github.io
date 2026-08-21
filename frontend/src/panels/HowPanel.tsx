@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 
 const STEPS = [
-  { n: "01", big: "🎰", h: "Pull the trigger", p: "Pay 0.005 NVDA per play (or swap any asset → NVDA in-app via LI.FI). Batch up to 50 rolls. Payment is taken up-front so nobody can peek before revealing." },
+  { n: "01", big: "🎰", h: "Pull the trigger", p: "Pay 0.005 NVDA per play (or swap ETH / WETH / USDG → NVDA in-app, one wallet). Batch up to 50 rolls. Payment is taken up-front so nobody can peek before revealing." },
   { n: "02", big: "🎲", h: "Provably-fair roll", p: "The outcome is locked to the commit block's hash — 40% mints a Winner 👑, 60% a Loser badge 🌶️. Not you, not the team can grind it." },
   { n: "03", big: "👑", h: "Reveal your fate", p: "A block later you reveal and a WON / LOSE pop-up drops. Winners get a real asset NFT; losers keep a saucy badge forever. Anyone can settle a roll, so it never stalls." },
   { n: "04", big: "💰", h: "Put winners to work", p: "Stake Winner NFTs to earn a live NVDA yield off every loss AND a share of the 50M $FINGERS 90-day emission — both split by how many you stake." },
@@ -83,6 +83,18 @@ export function HowPanel() {
         </div>
       </div>
 
+      {/* Double or nothing */}
+      <div className="card glow">
+        <div className="eyebrow">Optional side-game</div>
+        <h2>🎲 Double or nothing on your claim</h2>
+        <p className="sub">When you claim your staking $FINGERS you get a choice: bank it safely, or flip it on a provably-fair 50/50 for a shot at <b>2×</b>. Pure opt-in — the safe Claim is always right there.</p>
+        <div className="mflow">
+          <div className="mrow"><span className="tag2 t-win">WIN · 50%</span><span className="arrow">→</span><p>You get your claim back <b>plus an equal bonus from the jackpot</b> — up to <b>2× total</b>. Paid instantly on reveal.</p></div>
+          <div className="mrow"><span className="tag2 t-lose">LOSE · 50%</span><span className="arrow">→</span><p>Your staked claim <b>flows into the jackpot</b> for the next winner. Nothing is burned — it's player-vs-player, supply-neutral.</p></div>
+          <div className="mrow"><span className="tag2 t-house">FAIR</span><span className="arrow">→</span><p>Same commit-reveal blockhash engine as the mint. You commit in one tx, reveal a block later — nobody, not even the team, can grind the flip.</p></div>
+        </div>
+      </div>
+
       {/* Tokenomics */}
       <div className="card glow">
         <div className="eyebrow">Tokenomics</div>
@@ -107,7 +119,7 @@ export function HowPanel() {
           <li><b>Team custodies nothing.</b> Wins auto-flow into <b>permanently-locked LP</b>; the 50M $FINGERS is emitted to stakers; the team's only take is the 75%-of-losses sink. The 50M LP allocation is held by an immutable migrator, not a team wallet.</li>
           <li><b>Community-gated treasury.</b> The team <b>cannot</b> unilaterally drain the pooled NVDA — moving it needs an on-chain proposal that <b>50% of Winner NFTs vote to approve.</b></li>
         </ul>
-        <div className="warn-box"><b>Not independently audited.</b> Written defensively, unit + live-fork tested (38/38) and verified on-chain — but a professional audit is still pending, and ownership moves to a multisig before launch. Play with what you can afford to lose. Nothing here is financial advice.</div>
+        <div className="warn-box"><b>Not independently audited.</b> Written defensively, unit + live-fork tested (41/41) and verified on-chain — but a professional audit is still pending, and ownership moves to a multisig before launch. Play with what you can afford to lose. Nothing here is financial advice.</div>
       </div>
     </div>
   );

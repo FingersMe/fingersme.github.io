@@ -73,6 +73,17 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
     uint256 public fingersPendingNoStakers;           // accrued while unstaked → team/LP after end
     mapping(address => uint256) public fingersDebt;   // user => settled level
 
+    // ── Opt-in "double or nothing" on the $FINGERS claim (PvP, self-funded, supply-neutral) ──
+    // A staker may GAMBLE their claimable $FINGERS instead of claiming it safely: commit → (a block later)
+    // reveal a 50/50 coin flip. WIN pays up to 2× (the bonus comes from the jackpot); LOSE sends the stake
+    // INTO the jackpot for future winners — no burn, just redistribution among gamblers. Commit-reveal (a
+    // future block hash seeds it) makes it un-exploitable; not revealing within 256 blocks forfeits to the
+    // jackpot, so refusing to reveal a loss can never dodge it. The safe `claim()` is always available.
+    uint256 public constant GAMBLE_WINDOW = 256;
+    uint256 public fingersJackpot;                    // $FINGERS pot funded by losers, drained by winners
+    mapping(address => uint256) public gambleAmount;  // $FINGERS a user has put up (0 = none pending)
+    mapping(address => uint256) public gambleBlock;   // commit block (its hash seeds the flip)
+
     event Staked(address indexed user, uint256 tokenId);
     event Unstaked(address indexed user, uint256 tokenId);
     event RewardNotified(address indexed token, uint256 amount);
@@ -80,6 +91,8 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
     event RewardTokenRegistered(address indexed token);
     event FingersEmissionStarted(address indexed fingers, uint256 ratePerSec, uint256 endsAt);
     event FingersLeftoverSwept(address indexed to, uint256 amount);
+    event GambleCommitted(address indexed user, uint256 amount, uint256 commitBlock);
+    event GambleRevealed(address indexed user, bool won, uint256 amountIn, uint256 payout);
 
     constructor(address _winnerNFT, address _usdg) {
         require(_winnerNFT != address(0), "zero nft");
@@ -303,6 +316,67 @@ contract FingersNFTStaking is IERC721Receiver, ReentrancyGuard {
             }
         }
         return (stakedCount[user] * acc) / PRECISION - fingersDebt[user];
+    }
+
+    // ── Double-or-nothing on the $FINGERS claim (opt-in, commit-reveal) ──
+
+    /// @notice Put your claimable $FINGERS up for a 50/50 double-or-nothing. Settles it out of the
+    ///         emission accounting and escrows it until you reveal. One live gamble per wallet.
+    function gambleClaimCommit() external nonReentrant returns (uint256 amount) {
+        require(gambleAmount[msg.sender] == 0, "gamble pending");
+        _accrueFingers();
+        uint256 shares = stakedCount[msg.sender];
+        require(shares > 0, "no stake");
+        uint256 owed = (shares * fingersAccPerShare) / PRECISION - fingersDebt[msg.sender];
+        require(owed > 0, "nothing to gamble");
+        fingersDebt[msg.sender] += owed;                 // remove it from claimable (escrowed for the flip)
+        gambleAmount[msg.sender] = owed;
+        gambleBlock[msg.sender] = block.number;
+        amount = owed;
+        emit GambleCommitted(msg.sender, owed, block.number);
+    }
+
+    /// @notice Reveal the flip (a block after commit). WIN → up to 2× (bonus from the jackpot);
+    ///         LOSE → your stake feeds the jackpot. Must reveal within 256 blocks (else forfeit).
+    function gambleClaimReveal() external nonReentrant returns (bool won, uint256 payout) {
+        uint256 amt = gambleAmount[msg.sender];
+        require(amt > 0, "no gamble");
+        uint256 cb = gambleBlock[msg.sender];
+        require(block.number > cb, "wait a block");
+        bytes32 h = blockhash(cb);
+        require(h != bytes32(0), "aged out");            // reveal within the 256-block window
+        gambleAmount[msg.sender] = 0;                     // effects before transfer (CEI)
+        gambleBlock[msg.sender] = 0;
+        won = uint256(sha256(abi.encodePacked(h, msg.sender, amt))) % 2 == 0;
+        if (won) {
+            uint256 bonus = amt < fingersJackpot ? amt : fingersJackpot; // up to 2×, capped by the pot
+            fingersJackpot -= bonus;
+            payout = amt + bonus;
+            fingers.safeTransfer(msg.sender, payout);
+        } else {
+            fingersJackpot += amt;                        // your stake joins the pot for future winners
+        }
+        emit GambleRevealed(msg.sender, won, amt, payout);
+    }
+
+    /// @notice If a gambler never reveals within the window, ANYONE can forfeit their stake to the
+    ///         jackpot — so not revealing a loss can never dodge it. Keeps the game un-exploitable.
+    function gambleForfeit(address user) external nonReentrant {
+        uint256 amt = gambleAmount[user];
+        require(amt > 0, "no gamble");
+        require(block.number > gambleBlock[user] + GAMBLE_WINDOW, "not aged");
+        require(blockhash(gambleBlock[user]) == bytes32(0), "still revealable");
+        gambleAmount[user] = 0;
+        gambleBlock[user] = 0;
+        fingersJackpot += amt;
+        emit GambleRevealed(user, false, amt, 0);
+    }
+
+    /// @notice A user's live gamble (amount, commit block, whether it can be revealed now).
+    function pendingGamble(address user) external view returns (uint256 amount, uint256 commitBlock, bool revealable) {
+        amount = gambleAmount[user];
+        commitBlock = gambleBlock[user];
+        revealable = amount > 0 && block.number > commitBlock && blockhash(commitBlock) != bytes32(0);
     }
 
     /// @notice Emission snapshot for the UI: rate/sec, end ts, seconds left, distributed, total.

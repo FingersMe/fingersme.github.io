@@ -1,7 +1,7 @@
 # Fingers Me — Security Review (self-audit)
 
 **Date:** 2026-08-19 · **Chain:** Robinhood (chainId 4663), Uniswap v4 · **Solidity:** 0.8.28, OZ 5.6, viaIR+cancun
-**Method:** manual line-by-line review by the author + 22 unit tests + a full-lifecycle simulation, cross-checked against the audited `luckylaunch2` reference and its `SECURITY_AUDIT.md`.
+**Method:** manual line-by-line review by the author + 41 tests (37 unit + 4 live v4 fork) + a full-lifecycle simulation, cross-checked against the audited `luckylaunch2` reference and its `SECURITY_AUDIT.md`.
 
 > ⚠️ **This is a self-review, not an independent professional audit.** It does NOT guarantee the
 > system is unhackable. Two classes of risk are only partially covered here and MUST be closed
@@ -141,6 +141,30 @@
 - Team's only revenue = the immutable 75%-of-losses sink. Everything else (wins, LP, emission) is
   automated and non-custodial. This is the maximally-trustless configuration of the system.
 
+### New in v6 (reviewed 2026-08-21): opt-in "double-or-nothing" claim gamble
+- **Purely optional, self-funded PvP side-game on the staking claim.** A staker can either `claim()`
+  their pending $FINGERS safely (unchanged) OR route it through a provably-fair 50/50 for a shot at 2×.
+  Two-step commit-reveal, same blockhash engine as the mint:
+  - `gambleClaimCommit()` requires an active stake, `owed > 0`, and NO pending gamble. It **settles and
+    escrows** the caller's recognized emission by advancing `fingersDebt` (the exact amount is snapshotted
+    into `gambleAmount`), records `gambleBlock`, and emits `GambleCommitted`. The claim is now off the
+    accPerShare books and held as the stake.
+  - `gambleClaimReveal()` (next block onward, `blockhash != 0`) computes
+    `won = uint256(sha256(blockhash‖msg.sender‖amount)) % 2 == 0`. **Win** → transfers
+    `amount + min(amount, jackpot)` (up to 2×; the bonus is debited from `fingersJackpot`). **Lose** →
+    the escrowed `amount` is added to `fingersJackpot`. Clears the gamble slot; emits `GambleRevealed`.
+  - `gambleForfeit(user)` — permissionless; after the 256-block `GAMBLE_WINDOW` with `blockhash == 0`
+    (reveal impossible), the escrowed stake is swept into the jackpot so nothing is ever stranded.
+- **Supply-neutral & solvent.** No mint, no burn: a loss redistributes the loser's own claim to the
+  jackpot; a win pays the winner from their escrow + jackpot, and the win bonus is `min(amount, jackpot)`
+  so **payouts can never exceed the FINGERS the contract holds** (emission balance + jackpot). The
+  jackpot only ever grows from real losses. *Tested: commit escrows exactly the pending amount and zeroes
+  it from accPerShare; reveal is a fair coin (both outcomes reachable) and keeps the jackpot solvent;
+  forfeit after the window moves the stake to the jackpot.*
+- **No new custody or admin power.** The gamble touches only the caller's own recognized emission and the
+  jackpot; `emissionAdmin`/`owner` gain nothing — they can neither seize a stake nor bias the flip. The
+  256-block forfeit mirrors the mint's anti-withhold guarantee (refusing to reveal never profits).
+
 ## Residual risks (documented, must be addressed operationally)
 1. **v4 swap-path fork tests — DONE (pass on the live Robinhood v4 PoolManager).** Hook fee-take/
    settle + burn + reflexive buyback, zap asset→USDG swap + commit, basket auto-seed
@@ -158,9 +182,10 @@
 6. **Independent audit** — REQUIRED before real funds.
 
 ## Test status
-**39/39 tests green — 35 unit + 4 live Robinhood-v4 fork** (v3 added 3: rounds/countdown/finalize; v2 added 3: free-credits,
-sell-back, vote-gated emergency). `scripts/simulate.js` reconciles every USDG bucket end-to-end and
-projects to the 1,000,000-winner scale. Compiles clean (viaIR, cancun).
+**41/41 tests green — 37 unit + 4 live Robinhood-v4 fork** (v6 added 2: gamble commit/reveal fairness+solvency,
+forfeit-after-window; v3 added 3: rounds/countdown/finalize; v2 added 3: free-credits, sell-back,
+vote-gated emergency). `scripts/simulate.js` reconciles every USDG bucket end-to-end and projects to the
+1,000,000-winner scale. Compiles clean (viaIR, cancun).
 
 > **v2 redeploy required:** the game contract's ABI/logic changed (free-credit API, `sellBackWinner`,
 > emergency governance). The addresses deployed 2026-08-20 are pre-v2 and must be **re-deployed**; update

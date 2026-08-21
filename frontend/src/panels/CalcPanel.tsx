@@ -22,6 +22,7 @@ export function CalcPanel() {
   const [proj, setProj] = useState(10_000);
   const [mult, setMult] = useState(3);
   const [lpBoost, setLpBoost] = useState(0); // % of the team sink added to LP (0–100)
+  const [rides, setRides] = useState(1); // double-or-nothing: consecutive "let it ride" flips
 
   const playCostNvda = mp ? Number(formatUnits(mp as bigint, 18)) : 0.005;
   const winP = wc ? Number(wc) / 10000 : 0.4;
@@ -50,6 +51,14 @@ export function CalcPanel() {
   const fdv = launchPriceUsd * SUPPLY;
 
   const payoff = [1, breakEven, 5, 10].filter((m, i, a) => m > 0 && a.indexOf(m) === i).sort((a, b) => a - b);
+
+  // 🎲 Double-or-nothing on the emission claim. Each flip is a fair 50/50: win pays up to 2× (bonus
+  // from the shared jackpot), lose feeds the jackpot. Supply-neutral PvP — no burn, no mint. Letting a
+  // claim "ride" N flips: P(survive) = 0.5^N, payout if you survive = 2^N × (value at that flip).
+  const safeClaimUsd = fingersLaunch; // your emission $FINGERS at launch price (the "safe Claim")
+  const rideSurvive = Math.pow(0.5, rides);
+  const ridePayout = safeClaimUsd * Math.pow(2, rides);
+  const rideEv = safeClaimUsd; // fair coin → EV stays flat; you trade certainty for variance
 
   return (
     <div className="grid" style={{ gap: 16 }}>
@@ -132,6 +141,27 @@ export function CalcPanel() {
             <li><b>Exit option:</b> sell any Winner back for 75% (~{usd(sellback, 0)} total) if you'd rather take cash than hold.</li>
             <li><b>Deflation tailwind:</b> a 1% buy/sell fee buys back &amp; burns $FINGERS forever — fewer tokens, higher floor.</li>
           </ul>
+        </div>
+      </div>
+
+      {/* Double or nothing */}
+      <div className="card glow">
+        <div className="an-head"><h2>🎲 Double-or-nothing on your claim</h2><span className="badge win">optional · 50/50</span></div>
+        <p className="sub" style={{ marginBottom: 14 }}>
+          Instead of banking your <b>{compact(yourTokens)} $FINGERS</b> ({usd(safeClaimUsd, 0)} at launch price), you can flip it. Each flip is a provably-fair coin: <b>win → up to 2×</b> (bonus from the shared jackpot), <b>lose → it feeds the jackpot</b>. No burn, no mint — pure player-vs-player. It's a spice tool, not a money printer: the fair coin keeps your <b>expected</b> value flat while blowing up the variance.
+        </p>
+        <div className="calc-out">
+          <Out k="Bank it (safe)" v={usd(safeClaimUsd, 0)} sub="the plain Claim" />
+          <Out k={`Ride ${rides}× → payout`} v={usd(ridePayout, 0)} sub={`${(2 ** rides)}× your claim`} up />
+          <Out k="Odds you survive" v={`${(rideSurvive * 100).toFixed(rides > 3 ? 1 : 0)}%`} sub={`0.5^${rides}`} />
+          <Out k="Expected value" v={usd(rideEv, 0)} sub="fair coin, flat EV" />
+        </div>
+        <label className="calc-slider" style={{ marginTop: 12 }}>
+          <div className="row" style={{ justifyContent: "space-between" }}><span>Let it ride — consecutive flips</span><b className="mono up">{rides}×</b></div>
+          <input type="range" min={1} max={8} step={1} value={rides} onChange={(e) => setRides(Number(e.target.value))} />
+        </label>
+        <div className="hint" style={{ marginTop: 4 }}>
+          Assumes the jackpot is deep enough to pay the full 2× bonus each flip; if it's thinner, a win pays between 1× and 2×. The safe <b>Claim</b> is always one tap away — you only gamble what you choose to.
         </div>
       </div>
     </div>

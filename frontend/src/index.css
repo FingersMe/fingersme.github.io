@@ -241,6 +241,20 @@ ul.trust li::before { content: "\25C6"; position: absolute; left: 0; top: 1px; c
 .an-meter > span { display: block; height: 100%; background: linear-gradient(90deg, var(--green-deep), var(--green-bright)); box-shadow: 0 0 16px rgba(22,199,132,.45); transition: width .5s; }
 .an-meter-lbl { color: var(--muted); font-size: 11px; margin-top: 6px; }
 
+/* Reveal | Swap sub-tabs + native swap box */
+.sub-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.sub-tab { flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-weight: 800; font-size: 13px; cursor: pointer; transition: .15s; }
+.sub-tab.on { background: linear-gradient(135deg, var(--green), var(--green-deep)); color: #04150e; border-color: transparent; }
+.swapbox { display: grid; gap: 10px; }
+.sb-row { display: grid; gap: 8px; }
+.sb-side { background: #070d0f; border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; }
+.sb-lab { color: var(--muted); font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.sb-inp { display: flex; align-items: center; gap: 8px; }
+.sb-inp input { flex: 1; border: 0 !important; background: transparent !important; padding: 0 !important; font-size: 22px !important; font-weight: 800; }
+.sb-inp select { width: auto; padding: 8px 10px; background: var(--surface-2); border-radius: 9px; font-size: 14px; }
+.sb-token { font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 15px; padding: 8px 10px; }
+.sb-arrow { text-align: center; color: var(--green); font-size: 18px; font-weight: 800; }
+
 /* LI.FI swap container */
 .swap-wrap { max-width: 480px; margin: 0 auto; width: 100%; border-radius: 18px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px var(--border); }
 

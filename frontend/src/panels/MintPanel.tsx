@@ -4,7 +4,7 @@ import { decodeEventLog, formatUnits, maxUint256 } from "viem";
 import toast from "react-hot-toast";
 import { addresses, abi, erc20Abi, isDeployed, fmtPay, PAY } from "../lib/contracts";
 import { ResultModal, type Res } from "../components/ResultModal";
-import { SwapWidget } from "./SwapPanel";
+import { SwapBox } from "../components/SwapBox";
 
 type Attempt = { id: bigint; block: bigint };
 type Result = { id: bigint; won: boolean; nftId: bigint };
@@ -21,7 +21,7 @@ export function MintPanel() {
   const [results, setResults] = useState<Result[]>([]);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<Res[] | null>(null);
-  const [showSwap, setShowSwap] = useState(false);
+  const [rside, setRside] = useState<"reveal" | "swap">("reveal");
 
   const deployed = isDeployed(addresses.game);
 
@@ -164,22 +164,22 @@ export function MintPanel() {
           </button>
         )}
 
-        <div className="hint" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span>Balance: <span className="mono">{fmtPay(bal as bigint | undefined)} {PAY.symbol}</span></span>
-          <button className="btn alt" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => setShowSwap((s) => !s)}>
-            {showSwap ? "✕ Close swap" : "💱 Get NVDA — swap from your wallet"}
-          </button>
-        </div>
-        {showSwap && (
-          <div style={{ marginTop: 12 }}>
-            <div className="hint" style={{ marginTop: 0, marginBottom: 8 }}>Swap any token you hold → NVDA, right here (powered by LI.FI). Connect inside the box, pick a token, execute — then play.</div>
-            <SwapWidget />
-          </div>
-        )}
+        <div className="hint">Balance: <span className="mono">{fmtPay(bal as bigint | undefined)} {PAY.symbol}</span> · no NVDA? open the <b>Swap</b> tab on the right →</div>
       </div>
 
       <div className="card">
-        <h2>Reveal</h2>
+        <div className="sub-tabs">
+          <button className={`sub-tab ${rside === "reveal" ? "on" : ""}`} onClick={() => setRside("reveal")}>🔮 Reveal{pending.length ? ` (${pending.length})` : ""}</button>
+          <button className={`sub-tab ${rside === "swap" ? "on" : ""}`} onClick={() => setRside("swap")}>🔁 Swap → NVDA</button>
+        </div>
+
+        {rside === "swap" ? (
+          <>
+            <p className="sub">Get NVDA with your connected wallet — swap ETH / WETH / USDG straight into NVDA on the Robinhood DEX. One wallet, non-custodial.</p>
+            <SwapBox />
+          </>
+        ) : (
+        <>
         <p className="sub">Outcomes are locked at commit and revealed a block later — nobody can grind the result.</p>
 
         {pending.length > 0 ? (
@@ -204,6 +204,8 @@ export function MintPanel() {
               ))}
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>

@@ -1,7 +1,6 @@
 import { useReadContract } from "wagmi";
 import { motion } from "framer-motion";
 import { addresses, abi, isDeployed } from "../lib/contracts";
-import { WalletHoldings } from "../components/WalletHoldings";
 import { SellBackCard } from "../components/SellBackCard";
 
 export function GalleryPanel() {
@@ -11,7 +10,6 @@ export function GalleryPanel() {
 
   return (
     <div className="grid" style={{ gap: 18 }}>
-      <WalletHoldings />
       <div className="grid two">
         <Collection art="/won_NFT.png" title="Winners" emoji="👑" tone="win"
           count={deployed ? (winners as bigint | undefined) : undefined} loading={deployed && lw}

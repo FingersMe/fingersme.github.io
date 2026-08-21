@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import { formatUnits, decodeEventLog } from "viem";
 import toast from "react-hot-toast";
-import { addresses, abi, isDeployed } from "../lib/contracts";
+import { addresses, abi, isDeployed, fmtPay } from "../lib/contracts";
+import { usePrices, usd } from "../lib/usePrices";
 
 const fmtF = (v?: bigint) => v === undefined ? "—" : Number(formatUnits(v, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -21,6 +22,8 @@ export function ClaimPanel() {
   const { data: staked } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "stakedCount", args: address ? [address] : undefined, query: { enabled: on && !!address, refetchInterval: 15_000 } });
   const { data: jackpot } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "fingersJackpot", query: { enabled: on, refetchInterval: 12_000 } });
   const { data: pg, refetch: refetchPg } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pendingGamble", args: address ? [address] : undefined, query: { enabled: on && !!address, refetchInterval: 5_000 } });
+  const { data: pendNvda, refetch: refetchNvda } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "pending", args: address ? [addresses.usdg, address] : undefined, query: { enabled: on && !!address, refetchInterval: 10_000 } });
+  const { nvdaUsd, fingersUsd } = usePrices();
 
   if (!on) return <div className="card glow"><div className="notice">Staking isn't wired yet.</div></div>;
 
@@ -32,16 +35,19 @@ export function ClaimPanel() {
   const pct = total > 0n ? Math.min(100, Number((recognized * 100n) / total)) : 0;
   const myStaked = (staked as bigint | undefined) ?? 0n;
   const claimable = (pend as bigint | undefined) ?? 0n;
+  const nvdaOwed = (pendNvda as bigint | undefined) ?? 0n;
   const pgt = pg as readonly [bigint, bigint, boolean] | undefined;
   const gambleAmt = pgt?.[0] ?? 0n;
   const gambleRevealable = pgt?.[2] ?? false;
+  const fUsd = (v: bigint) => fingersUsd > 0 ? usd(Number(formatUnits(v, 18)) * fingersUsd) : null;
+  const nUsd = (v: bigint) => usd(Number(formatUnits(v, 18)) * nvdaUsd);
 
   async function claim() {
     try {
       setBusy(true);
       const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "claim", args: [] });
       await publicClient!.waitForTransactionReceipt({ hash });
-      toast.success("Claimed $FINGERS 🎁"); refetchPend();
+      toast.success("Claimed NVDA + $FINGERS 🎁"); refetchPend(); refetchNvda();
     } catch (e: any) { toast.error(String(e?.shortMessage || e?.message).slice(0, 120)); } finally { setBusy(false); }
   }
 
@@ -108,23 +114,33 @@ export function ClaimPanel() {
           </>
         ) : (
           <>
-            <div className="row" style={{ gap: 10 }}>
-              <button className="btn win" style={{ flex: 1 }} disabled={!isConnected || busy || claimable === 0n} onClick={claim}>
-                {busy ? "…" : `🎁 Claim ${fmtF(pend as bigint | undefined)}`}
-              </button>
-              <button className="btn" style={{ flex: 1 }} disabled={!isConnected || busy || claimable === 0n} onClick={() => {
-                if (!confirm(`Gamble your ${fmtF(pend as bigint | undefined)} $FINGERS on a 50/50? Win = up to 2× (from the jackpot). Lose = it feeds the jackpot. The safe Claim keeps it all.`)) return;
+            <div className="claim-lines">
+              <div className="claim-line">
+                <span className="cl-tok"><img src="/logox.png" alt="" /> NVDA yield</span>
+                <span className="cl-amt">{fmtPay(nvdaOwed)}<i>{nUsd(nvdaOwed)}</i></span>
+              </div>
+              <div className="claim-line">
+                <span className="cl-tok"><img src="/logo.png" alt="" /> $FINGERS emission</span>
+                <span className="cl-amt">{fmtF(claimable)}<i>{fUsd(claimable) ?? "pre-LP"}</i></span>
+              </div>
+            </div>
+
+            <button className="btn full win" style={{ marginTop: 4 }} disabled={!isConnected || busy || (claimable === 0n && nvdaOwed === 0n)} onClick={claim}>
+              {busy ? "…" : `🎁 Claim safely — NVDA + $FINGERS`}
+            </button>
+
+            <div className="gamble-cta">
+              <div className="gc-head">
+                <span>🎲 Feeling lucky? <b>Double your $FINGERS</b></span>
+                <span className="badge win">🎰 Jackpot {fmtF(jackpot as bigint | undefined)}</span>
+              </div>
+              <p className="gc-sub">Flip your <b>{fmtF(claimable)} $FINGERS</b> on a provably-fair 50/50. <b className="up">Win →</b> up to <b>2×</b> (bonus from the jackpot). <b className="dn">Lose →</b> your $FINGERS drops into the jackpot for the next winner. No burns, supply-neutral — pure player-vs-player. Your NVDA yield is never at risk; only the $FINGERS rides.</p>
+              <button className="btn full" disabled={!isConnected || busy || claimable === 0n} onClick={() => {
+                if (!confirm(`Gamble your ${fmtF(claimable)} $FINGERS on a 50/50?\n\nWIN → up to 2× (from the jackpot)\nLOSE → it feeds the jackpot for the next winner\n\nYour NVDA yield stays safe. Continue?`)) return;
                 gamble();
               }}>
-                {busy ? "…" : "🎲 Double or nothing"}
+                {busy ? "Flipping…" : `🎲 Gamble ${fmtF(claimable)} $FINGERS → up to ${fmtF(claimable * 2n)}`}
               </button>
-            </div>
-            <div className="an-head" style={{ marginTop: 14 }}>
-              <span className="sub" style={{ margin: 0 }}>🎰 Jackpot pool</span>
-              <span className="badge win">{fmtF(jackpot as bigint | undefined)} $FINGERS</span>
-            </div>
-            <div className="hint" style={{ marginTop: 8 }}>
-              <b>Claim</b> = keep it all, safely. <b>Double or nothing</b> = a provably-fair 50/50 (commit-reveal): win pays up to <b>2×</b> from the jackpot, lose sends your claim into the jackpot for the next winner. No burns — pure PvP. Claiming also sweeps your pending NVDA.
             </div>
           </>
         )}

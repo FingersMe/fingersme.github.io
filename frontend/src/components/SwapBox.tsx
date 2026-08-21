@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useAccount, usePublicClient, useSendTransaction, useWriteContract } from "wagmi";
+import { useAccount, useBalance, usePublicClient, useSendTransaction, useWriteContract } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi as viemErc20, type Address } from "viem";
 import toast from "react-hot-toast";
 import { addresses } from "../lib/contracts";
+import { usePrices, usd } from "../lib/usePrices";
 
 const CHAIN = 4663;
 const NATIVE = "0x0000000000000000000000000000000000000000"; // Robinhood native ETH (per LI.FI chains)
@@ -32,6 +33,11 @@ export function SwapBox() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const { nvdaUsd } = usePrices();
+  const { data: fromBal } = useBalance({ address, token: from.native ? undefined : (from.addr as Address), query: { enabled: !!address, refetchInterval: 12_000 } });
+  const balNum = fromBal ? Number(formatUnits(fromBal.value, fromBal.decimals)) : undefined;
+  const recvUsd = quote ? Number(fmtNvda(quote.toAmount)) * nvdaUsd : undefined;
 
   // debounced quote
   useEffect(() => {
@@ -86,7 +92,15 @@ export function SwapBox() {
     <div className="swapbox">
       <div className="sb-row">
         <div className="sb-side">
-          <div className="sb-lab">You pay</div>
+          <div className="sb-lab" style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>You pay</span>
+            {balNum !== undefined && (
+              <span className="sb-bal">
+                Balance: <b>{balNum.toLocaleString(undefined, { maximumFractionDigits: 5 })} {from.sym}</b>
+                {balNum > 0 && <button type="button" className="sb-max" onClick={() => setAmount(String(from.native ? Math.max(0, balNum - 0.002) : balNum))}>MAX</button>}
+              </span>
+            )}
+          </div>
           <div className="sb-inp">
             <input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0" />
             <select value={from.sym} onChange={(e) => setFrom(FROMS.find((f) => f.sym === e.target.value)!)}>
@@ -96,7 +110,10 @@ export function SwapBox() {
         </div>
         <div className="sb-arrow">↓</div>
         <div className="sb-side">
-          <div className="sb-lab">You receive (est.)</div>
+          <div className="sb-lab" style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>You receive (est.)</span>
+            {recvUsd !== undefined && <span className="sb-bal">≈ {usd(recvUsd)}</span>}
+          </div>
           <div className="sb-inp">
             <input readOnly value={quote ? fmtNvda(quote.toAmount) : loading ? "…" : "0.0"} />
             <span className="sb-token nvda-ink">▲ NVDA</span>

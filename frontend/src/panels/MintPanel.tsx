@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { addresses, abi, erc20Abi, isDeployed, fmtPay, PAY } from "../lib/contracts";
 import { ResultModal, type Res } from "../components/ResultModal";
 import { SwapBox } from "../components/SwapBox";
+import { usePrices, usd } from "../lib/usePrices";
 
 type Attempt = { id: bigint; block: bigint };
 type Result = { id: bigint; won: boolean; nftId: bigint };
@@ -43,6 +44,12 @@ export function MintPanel() {
   const mintPrice = (price as bigint) ?? 5_000_000_000_000_000n; // 0.005 NVDA
   const cost = mintPrice * BigInt(count);
   const needsApprove = (allowance as bigint | undefined) !== undefined && (allowance as bigint) < cost;
+
+  const { nvdaUsd } = usePrices();
+  const nvdaNum = (v?: bigint) => (v === undefined ? undefined : Number(formatUnits(v, 18)));
+  const costUsd = nvdaNum(cost)! * nvdaUsd;
+  const eachUsd = nvdaNum(mintPrice)! * nvdaUsd;
+  const balUsd = bal !== undefined ? nvdaNum(bal as bigint)! * nvdaUsd : undefined;
 
   useEffect(() => save(pending), [pending]);
 
@@ -135,7 +142,7 @@ export function MintPanel() {
     <div className="grid two">
       <div className="card glow">
         <h2>Pull the trigger</h2>
-        <p className="sub">Each play costs <b className="mono">{fmtPay(mintPrice)} {PAY.symbol}</b> — the <b>first RWA presale</b>, settled in tokenized NVIDIA. Its own provably-fair roll. Batch up to 50.</p>
+        <p className="sub">Each play costs <b className="mono">{fmtPay(mintPrice)} {PAY.symbol}</b> <span className="usd-chip">≈ {usd(eachUsd)}</span> — the <b>first RWA presale</b>, settled in tokenized NVIDIA. Its own provably-fair roll. Batch up to 50.</p>
 
         <label className="hint" style={{ display: "block", marginBottom: 6 }}>Number of plays</label>
         <div className="row">
@@ -145,9 +152,12 @@ export function MintPanel() {
           </div>
         </div>
 
-        <div className="row" style={{ justifyContent: "space-between", margin: "16px 0" }}>
+        <div className="row" style={{ justifyContent: "space-between", margin: "16px 0", alignItems: "baseline" }}>
           <span className="muted">Total cost</span>
-          <span className="mono" style={{ fontSize: 18, fontWeight: 800 }}>{fmtPay(cost)} {PAY.symbol}</span>
+          <span style={{ textAlign: "right" }}>
+            <span className="mono" style={{ fontSize: 18, fontWeight: 800 }}>{fmtPay(cost)} {PAY.symbol}</span>
+            <span className="usd-chip" style={{ marginLeft: 8 }}>≈ {usd(costUsd)}</span>
+          </span>
         </div>
 
         {!isConnected ? (
@@ -164,7 +174,7 @@ export function MintPanel() {
           </button>
         )}
 
-        <div className="hint">Balance: <span className="mono">{fmtPay(bal as bigint | undefined)} {PAY.symbol}</span> · no NVDA? open the <b>Swap</b> tab on the right →</div>
+        <div className="hint">Balance: <span className="mono">{fmtPay(bal as bigint | undefined)} {PAY.symbol}</span>{balUsd !== undefined && <span className="usd-chip" style={{ marginLeft: 6 }}>≈ {usd(balUsd)}</span>} · no NVDA? open the <b>Swap</b> tab on the right →</div>
       </div>
 
       <div className="card">

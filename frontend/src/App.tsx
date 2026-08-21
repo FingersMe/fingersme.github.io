@@ -7,25 +7,19 @@ import { CountdownBar } from "./components/CountdownBar";
 import { EmergencyBanner } from "./components/EmergencyBanner";
 import { HowPanel } from "./panels/HowPanel";
 import { MintPanel } from "./panels/MintPanel";
-import { GalleryPanel } from "./panels/GalleryPanel";
-import { NftStakePanel } from "./panels/NftStakePanel";
-import { ClaimPanel } from "./panels/ClaimPanel";
-import { FingersPanel } from "./panels/FingersPanel";
+import { PortfolioPanel } from "./panels/PortfolioPanel";
 import { AdminPanel } from "./panels/AdminPanel";
 import { AnalyticsPanel } from "./panels/AnalyticsPanel";
 import { CalcPanel } from "./panels/CalcPanel";
-import { IconHow, IconPlay, IconGallery, IconStake, IconClaim, IconCoin, IconAdmin, IconChart, IconCalc } from "./components/Icons";
+import { IconHow, IconPlay, IconStake, IconAdmin, IconChart, IconCalc } from "./components/Icons";
 import { robinhood } from "./lib/wagmi";
 import { addresses, abi, isDeployed } from "./lib/contracts";
 
 const TABS = [
   { id: "how", label: "How it works", Icon: IconHow },
   { id: "mint", label: "Play", Icon: IconPlay },
+  { id: "portfolio", label: "Earn", Icon: IconStake },
   { id: "calc", label: "Returns calculator", Icon: IconCalc },
-  { id: "gallery", label: "Gallery & sell-back", Icon: IconGallery },
-  { id: "nftstake", label: "Stake NFTs", Icon: IconStake },
-  { id: "claim", label: "Claim $FINGERS", Icon: IconClaim },
-  { id: "fingers", label: "$FINGERS staking", Icon: IconCoin },
   { id: "analytics", label: "Analytics", Icon: IconChart },
 ] as const;
 type TabId = (typeof TABS)[number]["id"] | "admin";
@@ -120,11 +114,8 @@ export default function App() {
             <motion.div key={activeLabel} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }}>
               {tab === "how" && <HowPanel />}
               {tab === "mint" && <MintPanel />}
+              {tab === "portfolio" && <PortfolioPanel />}
               {tab === "calc" && <CalcPanel />}
-              {tab === "gallery" && <GalleryPanel />}
-              {tab === "nftstake" && <NftStakePanel />}
-              {tab === "claim" && <ClaimPanel />}
-              {tab === "fingers" && <FingersPanel />}
               {tab === "analytics" && <AnalyticsPanel />}
               {tab === "admin" && isOwner && <AdminPanel />}
             </motion.div>

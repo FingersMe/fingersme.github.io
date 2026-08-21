@@ -254,6 +254,34 @@ ul.trust li::before { content: "\25C6"; position: absolute; left: 0; top: 1px; c
 .sb-inp select { width: auto; padding: 8px 10px; background: var(--surface-2); border-radius: 9px; font-size: 14px; }
 .sb-token { font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 15px; padding: 8px 10px; }
 .sb-arrow { text-align: center; color: var(--green); font-size: 18px; font-weight: 800; }
+.sb-bal { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none; display: inline-flex; align-items: center; gap: 6px; }
+.sb-bal b { color: var(--text); }
+.sb-max { border: 1px solid var(--green); background: rgba(22,199,132,.12); color: var(--green-bright); font-weight: 800; font-size: 10px; padding: 2px 7px; border-radius: 6px; cursor: pointer; }
+.sb-max:hover { background: rgba(22,199,132,.22); }
+
+/* ── USD value chip ── */
+.usd-chip { display: inline-block; font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: .82em; color: var(--green); background: rgba(22,199,132,.10); border: 1px solid rgba(22,199,132,.28); padding: 1px 7px; border-radius: 999px; vertical-align: middle; }
+
+/* ── Wallet holdings strip ── */
+.holdings-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+@media (max-width: 900px) { .holdings-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 560px) { .holdings-grid { grid-template-columns: repeat(2, 1fr); } }
+.holding-cell { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; display: flex; gap: 11px; align-items: center; transition: border-color .15s, transform .15s; }
+.holding-cell:hover { border-color: rgba(22,199,132,.5); transform: translateY(-2px); }
+.portfolio-tabs .sub-tab { display: inline-flex; align-items: center; justify-content: center; }
+
+/* ── Claim & gamble ── */
+.claim-lines { display: grid; gap: 8px; margin-bottom: 14px; }
+.claim-line { display: flex; justify-content: space-between; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.cl-tok { display: inline-flex; align-items: center; gap: 9px; font-weight: 800; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+.cl-tok img { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; }
+.cl-amt { font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 19px; text-align: right; }
+.cl-amt i { display: block; font-style: normal; font-size: 12px; color: var(--green); font-weight: 700; }
+.gamble-cta { margin-top: 14px; border: 1px solid rgba(22,199,132,.32); background: linear-gradient(160deg, rgba(22,199,132,.07), rgba(22,199,132,.02)); border-radius: 14px; padding: 14px; position: relative; overflow: hidden; }
+.gamble-cta::before { content: "🎲"; position: absolute; right: -8px; top: -14px; font-size: 74px; opacity: .06; transform: rotate(12deg); pointer-events: none; }
+.gc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 15px; margin-bottom: 6px; }
+.gc-sub { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 0 0 12px; }
+.gc-sub .up { font-weight: 800; } .gc-sub .dn { font-weight: 800; }
 
 /* LI.FI swap container */
 .swap-wrap { max-width: 480px; margin: 0 auto; width: 100%; border-radius: 18px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px var(--border); }

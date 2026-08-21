@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
 import toast from "react-hot-toast";
+import { formatUnits } from "viem";
 import { addresses, abi, isDeployed, fmtPay } from "../lib/contracts";
 import { useOwnedNfts, useStakedNfts } from "../lib/useOwnedNfts";
+import { usePrices, usd } from "../lib/usePrices";
 
 export function NftStakePanel() {
   const { address, isConnected } = useAccount();
@@ -21,6 +23,7 @@ export function NftStakePanel() {
   const { data: totalStaked } = useReadContract({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "totalStaked", query: { enabled: deployed, refetchInterval: 15_000 } });
   // Loss-NVDA accrues in the GAME until someone flushes it here — surface it + let anyone distribute.
   const { data: stakerAccrued } = useReadContract({ address: addresses.game, abi: abi.game, functionName: "stakerAccrued", query: { enabled: deployed, refetchInterval: 12_000 } });
+  const { nvdaUsd, fingersUsd } = usePrices();
 
   async function distribute() {
     try {
@@ -54,11 +57,6 @@ export function NftStakePanel() {
       toast.success("Unstaked"); owned.refresh(); stakedNfts.refresh();
     } catch (e: any) { toast.error(err(e)); } finally { setBusy(false); }
   }
-  async function claim() {
-    try { setBusy(true); const hash = await writeContractAsync({ address: addresses.nftStaking, abi: abi.nftStaking, functionName: "claim", args: [] }); await publicClient!.waitForTransactionReceipt({ hash }); toast.success("Claimed NVDA rewards 💰"); }
-    catch (e: any) { toast.error(err(e)); } finally { setBusy(false); }
-  }
-
   if (!deployed) return <div className="card glow"><div className="notice">NFT staking isn't wired yet — set <span className="mono">VITE_ADDR_NFTSTAKING</span>.</div></div>;
 
   return (
@@ -68,8 +66,8 @@ export function NftStakePanel() {
         <p className="sub">Staked Winners earn <b style={{ color: "var(--lime)" }}>25% of every loss</b> in NVDA <b>and</b> a share of the <b style={{ color: "var(--gold)" }}>50M $FINGERS</b> 90-day emission — both split by how many you stake. Staking never burns them.</p>
         <div className="statbar" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 16 }}>
           <div className="stat"><div className="k">Your staked</div><div className="v green">{staked !== undefined ? (staked as bigint).toString() : "—"}</div></div>
-          <div className="stat"><div className="k">Pending NVDA</div><div className="v gold">{fmtPay(pend as bigint | undefined)}</div></div>
-          <div className="stat"><div className="k">Pending $FINGERS</div><div className="v gold">{pendF !== undefined ? Number((pendF as bigint) / (10n ** 14n)) / 10000 : "—"}</div></div>
+          <div className="stat"><div className="k">Pending NVDA</div><div className="v gold">{fmtPay(pend as bigint | undefined)}</div>{pend !== undefined && <div className="k" style={{ color: "var(--green)" }}>{usd(Number(formatUnits(pend as bigint, 18)) * nvdaUsd)}</div>}</div>
+          <div className="stat"><div className="k">Pending $FINGERS</div><div className="v gold">{pendF !== undefined ? Number((pendF as bigint) / (10n ** 14n)) / 10000 : "—"}</div>{pendF !== undefined && fingersUsd > 0 && <div className="k" style={{ color: "var(--green)" }}>{usd(Number(formatUnits(pendF as bigint, 18)) * fingersUsd)}</div>}</div>
         </div>
 
         <div className="row" style={{ marginBottom: 8 }}>
@@ -79,8 +77,8 @@ export function NftStakePanel() {
           <button className="btn alt" disabled={!isConnected || busy || stakedNfts.ids.length === 0} onClick={() => unstake(stakedNfts.ids)}>
             Unstake all ({stakedNfts.ids.length})
           </button>
-          <button className="btn gold-btn" style={{ background: "linear-gradient(135deg,var(--gold),var(--gold-deep))", color: "#04150e" }} disabled={!isConnected || busy} onClick={claim}>Claim NVDA</button>
         </div>
+        <div className="hint" style={{ marginTop: 2 }}>💡 Your rewards (NVDA yield <b>+</b> $FINGERS emission) are claimed together in the <b>Claim &amp; gamble</b> card just below — one tap, or flip your $FINGERS for 2×.</div>
         {(owned.error || stakedNfts.error) && (
           <>
             <div className="hint">Auto-scan unavailable on this RPC — enter tokenIds manually:</div>
